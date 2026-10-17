@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -11,7 +13,19 @@ class DomainError(Exception):
         self.retryable = retryable
 
 
+logger = logging.getLogger(__name__)
+
+
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    if exc.status_code >= 500:
+        cause = exc.__cause__
+        logger.error(
+            "domain_error request_id=%s code=%s cause_type=%s cause_code=%s",
+            getattr(request.state, "request_id", "unavailable"),
+            exc.code,
+            type(cause).__name__ if cause is not None else "none",
+            getattr(cause, "code", "none") if cause is not None else "none",
+        )
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -47,5 +61,4 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException) -> J
         },
         headers=exc.headers,
     )
-
 
