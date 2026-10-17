@@ -13,6 +13,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
     env:
       PROJECT_ID: ecoloop-511918
       REGION: asia-south1
@@ -21,10 +24,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud via Workload Identity
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: projects/722209767801/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deployer@ecoloop-511918.iam.gserviceaccount.com
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -38,7 +43,6 @@ jobs:
             artifactregistry.googleapis.com \
             cloudbuild.googleapis.com \
             firestore.googleapis.com \
-            aiplatform.googleapis.com \
             --project="${{ env.PROJECT_ID }}" --quiet
 
       - name: Ensure Artifact Registry exists
@@ -71,8 +75,12 @@ jobs:
             --port=8080 \
             --cpu=1 \
             --memory=512Mi \
+            --min=0 \
+            --max=1 \
+            --concurrency=20 \
+            --timeout=60 \
             --allow-unauthenticated \
-            --set-env-vars="FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},AGENT_ENABLED=true,AGENT_PROVIDER=vertex,AGENT_MODEL=gemini-3.1-flash-lite,AGENT_THINKING_LEVEL=MINIMAL,PHOTO_MODEL=gemini-3.1-flash-lite,PHOTO_THINKING_LEVEL=MINIMAL,AGENT_VERTEX_PROJECT_ID=${{ env.PROJECT_ID }},AGENT_VERTEX_LOCATION=global" \
+            --set-env-vars="FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},AGENT_ENABLED=false,BACKEND_CORS_ORIGINS=[]" \
             --quiet
 
           API_URL=$(gcloud run services describe ecoloop-api --project="${{ env.PROJECT_ID }}" --region="${{ env.REGION }}" --format='value(status.url)')
@@ -80,10 +88,9 @@ jobs:
 
       - name: Build and Deploy Frontend Web
         env:
-          FIREBASE_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY || 'AIzaSyAxE8sK9kAaqePPbDCZRlDv9KEGK05Ious' }}
-          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_WEB_AUTH_DOMAIN || 'ecoloop-staging-20261015.firebaseapp.com' }}
-          FIREBASE_APP_ID: ${{ vars.FIREBASE_WEB_APP_ID || '1:26177403871:web:8b3125a80812c8c28be26a' }}
-          MAPS_API_KEY: ${{ vars.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyCyCLm4ERLVT3HnwYHNGiz14K4E51jkahQ' }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: "ecoloop-511918.firebaseapp.com"
+          FIREBASE_APP_ID: "1:722209767801:web:0d8d715756c5a69a1cefa8"
         run: |
           set -euo pipefail
           tag="${GITHUB_SHA::12}"
@@ -92,10 +99,9 @@ jobs:
           docker build --platform linux/amd64 \
             --build-arg "NEXT_PUBLIC_FIREBASE_API_KEY=${FIREBASE_API_KEY}" \
             --build-arg "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}" \
-            --build-arg "NEXT_PUBLIC_FIREBASE_PROJECT_ID=ecoloop-staging-20261015" \
+            --build-arg "NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }}" \
             --build-arg "NEXT_PUBLIC_FIREBASE_APP_ID=${FIREBASE_APP_ID}" \
             --build-arg "NEXT_PUBLIC_ECOLOOP_API_ORIGIN=${API_URL}" \
-            --build-arg "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${MAPS_API_KEY}" \
             --build-arg NEXT_PUBLIC_ECOLOOP_ENABLE_COMMANDS=true \
             --build-arg NEXT_PUBLIC_ECOLOOP_ENABLE_HOUSEHOLD_CREATE=true \
             -t "$web_image" frontend
@@ -109,11 +115,25 @@ jobs:
             --port=8080 \
             --cpu=1 \
             --memory=512Mi \
+            --min=0 \
+            --max=1 \
+            --concurrency=20 \
+            --timeout=60 \
             --allow-unauthenticated \
             --quiet
 
           WEB_URL=$(gcloud run services describe ecoloop-web --project="${{ env.PROJECT_ID }}" --region="${{ env.REGION }}" --format='value(status.url)')
-          echo "--------------------------------------------------------"
-          echo "DEPLOYED ECOLOOP WEB APP: $WEB_URL"
-          echo "DEPLOYED ECOLOOP API: $API_URL"
-          echo "--------------------------------------------------------"
+
+          gcloud run services update ecoloop-api \
+            --project="${{ env.PROJECT_ID }}" \
+            --region="${{ env.REGION }}" \
+            --update-env-vars="BACKEND_CORS_ORIGINS=[\"${WEB_URL}\"]" \
+            --quiet
+
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 "${API_URL}/api/v1/health" >/dev/null
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 "${WEB_URL}" >/dev/null
+
+          echo "=========================================================="
+          echo "ECOLOOP WEB DEPLOYED: $WEB_URL"
+          echo "ECOLOOP API DEPLOYED: $API_URL"
+          echo "=========================================================="
