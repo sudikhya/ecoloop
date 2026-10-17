@@ -22,7 +22,20 @@ export type ShoppingEntry = {
   updated_at: string;
 };
 
-export type CreatedHousehold = { household_id: string; name: string; role: string };
+export type HouseholdLocation = {
+  address?: string;
+  lat?: number;
+  lng?: number;
+  place_id?: string;
+};
+
+export type CreatedHousehold = {
+  household_id: string;
+  name: string;
+  role: string;
+  address?: string;
+  location?: { lat: number; lng: number };
+};
 export type HouseholdMembership = CreatedHousehold;
 
 export type CanonicalData =
@@ -70,14 +83,32 @@ export async function readCanonicalRecords(kind: "kitchen" | "shopping", idToken
   return validateSuccess(await canonicalRequest(kind, idToken, householdId, { signal }), kind);
 }
 
-export async function createCanonicalHousehold(idToken: string, name: string, idempotencyKey: string, signal?: AbortSignal): Promise<CreatedHousehold> {
+export async function createCanonicalHousehold(
+  idToken: string,
+  name: string,
+  idempotencyKey: string,
+  location?: HouseholdLocation,
+  signal?: AbortSignal,
+): Promise<CreatedHousehold> {
   const cleanName = name.trim();
   if (!cleanName || cleanName.length > 60 || /[\u0000-\u001f\u007f]/.test(cleanName) || !/^[A-Za-z0-9-]{16,128}$/.test(idempotencyKey)) {
     throw new CanonicalApiError("validation", "Enter a household name and review it before creating.");
   }
+  const bodyPayload: Record<string, unknown> = {
+    schema_version: 1,
+    idempotency_key: idempotencyKey,
+    name: cleanName,
+  };
+  if (location?.address) bodyPayload.address = location.address.trim().slice(0, 256);
+  if (typeof location?.lat === "number" && typeof location?.lng === "number") {
+    bodyPayload.lat = location.lat;
+    bodyPayload.lng = location.lng;
+  }
+  if (location?.place_id) bodyPayload.place_id = location.place_id.slice(0, 128);
+
   const payload = await canonicalRequest("households", idToken, null, {
     method: "POST",
-    body: { schema_version: 1, idempotency_key: idempotencyKey, name: cleanName },
+    body: bodyPayload,
     signal,
   });
   if (!object(payload) || payload.schema_version !== 1 || !boundedString(payload.request_id, 128) || !object(payload.result)) {
@@ -87,7 +118,13 @@ export async function createCanonicalHousehold(idToken: string, name: string, id
   if (typeof result.household_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(result.household_id) || !boundedString(result.name, 60) || result.name !== cleanName || !boundedString(result.role, 32) || !/^[a-z][a-z_-]*$/i.test(result.role)) {
     throw new CanonicalApiError("invalid_response", "The household service returned an unexpected creation result.", payload.request_id);
   }
-  return { household_id: result.household_id, name: result.name, role: result.role };
+  return {
+    household_id: result.household_id,
+    name: result.name,
+    role: result.role,
+    address: location?.address,
+    location: location?.lat !== undefined && location?.lng !== undefined ? { lat: location.lat, lng: location.lng } : undefined,
+  };
 }
 
 export async function listCanonicalHouseholds(idToken: string, signal?: AbortSignal): Promise<HouseholdMembership[]> {
@@ -101,3 +138,18 @@ export async function listCanonicalHouseholds(idToken: string, signal?: AbortSig
   }
   return rows as HouseholdMembership[];
 }
+
+export async function deleteCanonicalHousehold(idToken: string, householdId: string, signal?: AbortSignal): Promise<void> {
+  if (!householdId || !/^[A-Za-z0-9_-]{1,128}$/.test(householdId)) {
+    throw new CanonicalApiError("validation", "A valid household ID is required to delete.");
+  }
+  const payload = await canonicalRequest("households", idToken, null, {
+    method: "DELETE",
+    recordId: householdId,
+    signal,
+  });
+  if (!object(payload) || payload.schema_version !== 1 || !boundedString(payload.request_id, 128)) {
+    throw new CanonicalApiError("invalid_response", "The household service returned an unexpected deletion response.");
+  }
+}
+

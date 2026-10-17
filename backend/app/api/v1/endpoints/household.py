@@ -6,7 +6,7 @@ from app.core.errors import DomainError
 from app.core.firestore import get_firestore
 from app.core.identity import Principal, authenticated_uid, current_principal
 from app.agents.household import generate_household_turn
-from app.domain.household_creation import create_household
+from app.domain.household_creation import create_household, delete_household
 from app.domain.repository import confirm_facts, list_shopping_entries, record_outcome, save_shopping_entry
 from app.schemas.household import (
     ApiResult,
@@ -33,6 +33,16 @@ def household_create(
     uid: str = Depends(authenticated_uid),
 ) -> ApiResult:
     return _result(request.state.request_id, create_household(uid, command))
+
+
+@router.delete("/households/{household_id}", response_model=ApiResult)
+def household_delete(
+    request: Request,
+    household_id: str,
+    uid: str = Depends(authenticated_uid),
+) -> ApiResult:
+    return _result(request.state.request_id, delete_household(uid, household_id))
+
 
 
 @router.get("/kitchen", response_model=ApiResult)

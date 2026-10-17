@@ -10,7 +10,7 @@ export class CanonicalApiError extends Error {
 export type CanonicalResource = "households" | "kitchen" | "shopping" | "shopping-archive" | "facts/confirm" | "outcomes" | "share-logs" | "share-transition" | "activity" | "meal-plans" | "assistant-turns" | "preferences" | "preference-memory-sync" | "proposal-turns" | "proposal-actions" | "proposal-meal-actions" | "proposal-history";
 export type CanonicalRequestOptions = { method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; recordId?: string; body?: unknown; signal?: AbortSignal; query?: { limit?: number; cursor?: string } };
 const methods: Record<CanonicalResource, readonly string[]> = {
-  households: ["GET", "POST"], kitchen: ["GET"], shopping: ["GET", "POST"], "shopping-archive": ["PATCH"], "facts/confirm": ["POST"], outcomes: ["POST"], "share-logs": ["GET", "POST"], "share-transition": ["PATCH"], activity: ["GET"], "meal-plans": ["GET"], "assistant-turns": ["POST"], preferences: ["GET", "PUT", "DELETE"], "preference-memory-sync": ["POST"], "proposal-turns": ["POST"], "proposal-actions": ["POST"], "proposal-meal-actions": ["POST"], "proposal-history": ["GET"],
+  households: ["GET", "POST", "DELETE"], kitchen: ["GET"], shopping: ["GET", "POST"], "shopping-archive": ["PATCH"], "facts/confirm": ["POST"], outcomes: ["POST"], "share-logs": ["GET", "POST"], "share-transition": ["PATCH"], activity: ["GET"], "meal-plans": ["GET"], "assistant-turns": ["POST"], preferences: ["GET", "PUT", "DELETE"], "preference-memory-sync": ["POST"], "proposal-turns": ["POST"], "proposal-actions": ["POST"], "proposal-meal-actions": ["POST"], "proposal-history": ["GET"],
 };
 const RESPONSE_BYTES = 512_000;
 
@@ -67,13 +67,14 @@ export async function canonicalRequest(resource: CanonicalResource, idToken: str
   if (!idToken || idToken.length > 8192 || /[\r\n]/.test(idToken)) throw new CanonicalApiError("unauthenticated", "Sign in before accessing household records.");
   const householdCreation = resource === "households" && method === "POST";
   const householdDiscovery = resource === "households" && method === "GET";
+  const householdDeletion = resource === "households" && method === "DELETE";
   const userPrivate = resource === "preferences" || resource === "preference-memory-sync";
   const assistantTurn = resource === "assistant-turns" || resource === "proposal-turns";
-  if (householdCreation || householdDiscovery || userPrivate ? householdId !== null : !householdId || !/^[A-Za-z0-9_-]{1,128}$/.test(householdId)) throw new CanonicalApiError("validation", "This household request has an invalid scope.");
+  if (householdCreation || householdDiscovery || householdDeletion || userPrivate ? householdId !== null : !householdId || !/^[A-Za-z0-9_-]{1,128}$/.test(householdId)) throw new CanonicalApiError("validation", "This household request has an invalid scope.");
   const writing = method !== "GET" && !assistantTurn;
   if (householdCreation && process.env.NEXT_PUBLIC_ECOLOOP_ENABLE_HOUSEHOLD_CREATE !== "true") throw new CanonicalApiError("not_configured", "First-household creation is not enabled for this app yet.");
-  if (writing && !householdCreation && process.env.NEXT_PUBLIC_ECOLOOP_ENABLE_COMMANDS !== "true") throw new CanonicalApiError("not_configured", "Household changes are not enabled for this app yet.");
-  let path = householdCreation || householdDiscovery ? "/api/v1/households" : `/api/v1/${resource}`;
+  if (writing && !householdCreation && !householdDeletion && process.env.NEXT_PUBLIC_ECOLOOP_ENABLE_COMMANDS !== "true") throw new CanonicalApiError("not_configured", "Household changes are not enabled for this app yet.");
+  let path = householdCreation || householdDiscovery ? "/api/v1/households" : householdDeletion ? `/api/v1/households/${encodeURIComponent(options.recordId ?? "")}` : `/api/v1/${resource}`;
   if (resource === "assistant-turns") {
     path = "/api/v1/assistant/turns";
   } else if (resource === "proposal-turns") {

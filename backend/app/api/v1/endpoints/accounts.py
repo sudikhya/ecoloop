@@ -42,8 +42,14 @@ def list_my_households(request: Request, uid: str = Depends(authenticated_uid)) 
             household = household_snapshots.get(household_ref.path)
             household_data = household.to_dict() if household is not None and household.exists else None
             name = household_data.get("name") if household_data else None
-            if isinstance(name, str) and name.strip():
-                result.append({"household_id": household_ref.id, "name": name, "role": role})
+            status = household_data.get("status") if household_data else None
+            if isinstance(name, str) and name.strip() and status != "DELETED":
+                row_data: dict[str, Any] = {"household_id": household_ref.id, "name": name, "role": role}
+                if household_data and household_data.get("address"):
+                    row_data["address"] = household_data["address"]
+                if household_data and household_data.get("location"):
+                    row_data["location"] = household_data["location"]
+                result.append(row_data)
     except Exception as exc:
         raise DomainError("DATA_UNAVAILABLE", "Your household list is unavailable.", 503, True) from exc
     result.sort(key=lambda row: (row["name"].casefold(), row["household_id"]))

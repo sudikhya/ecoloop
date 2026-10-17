@@ -112,15 +112,20 @@ def create_household(uid: str, command: CreateHouseholdCommand) -> dict[str, str
         if quota_count >= MAX_HOUSEHOLD_CREATIONS_PER_UTC_DAY:
             raise DomainError("HOUSEHOLD_CREATION_LIMIT", "The daily household creation limit has been reached.", 429, True)
 
-        transaction.create(
-            household_ref,
-            {
-                "schema_version": 1,
-                "name": command.name,
-                "created_at": created_at,
-                "created_by": uid,
-            },
-        )
+        household_data: dict[str, Any] = {
+            "schema_version": 1,
+            "name": command.name,
+            "created_at": created_at,
+            "created_by": uid,
+        }
+        if command.address:
+            household_data["address"] = command.address
+        if command.lat is not None and command.lng is not None:
+            household_data["location"] = {"lat": command.lat, "lng": command.lng}
+        if command.place_id:
+            household_data["place_id"] = command.place_id
+
+        transaction.create(household_ref, household_data)
         transaction.create(
             member_ref,
             {
@@ -151,3 +156,37 @@ def create_household(uid: str, command: CreateHouseholdCommand) -> dict[str, str
         raise
     except Exception as exc:
         raise DomainError("DATA_UNAVAILABLE", "The household could not be created.", 503, True) from exc
+
+
+def delete_household(uid: str, household_id: str) -> dict[str, str]:
+    if not isinstance(household_id, str) or not household_id:
+        raise DomainError("VALIDATION_ERROR", "A valid household ID is required.", 400)
+    db = get_firestore()
+    household_ref = db.collection("households").document(household_id)
+    member_ref = household_ref.collection("members").document(uid)
+
+    @firestore.transactional
+    def commit_delete(transaction: Any) -> dict[str, str]:
+        household_snapshot = household_ref.get(transaction=transaction)
+        if not household_snapshot.exists:
+            raise DomainError("NOT_FOUND", "The household does not exist.", 404)
+        member_snapshot = member_ref.get(transaction=transaction)
+        if not member_snapshot.exists:
+            raise DomainError("FORBIDDEN", "You are not a member of this household.", 403)
+        member_data = member_snapshot.to_dict() or {}
+        if member_data.get("role") != "OWNER" or member_data.get("status") != "ACTIVE":
+            raise DomainError("FORBIDDEN", "Only an active owner can delete this household.", 403)
+
+        # Mark membership revoked/deleted
+        transaction.update(member_ref, {"status": "REVOKED", "deleted_at": datetime.now(timezone.utc)})
+        # Delete or mark household document
+        transaction.update(household_ref, {"status": "DELETED", "deleted_at": datetime.now(timezone.utc), "deleted_by": uid})
+        return {"household_id": household_id, "status": "deleted"}
+
+    try:
+        return commit_delete(db.transaction())
+    except DomainError:
+        raise
+    except Exception as exc:
+        raise DomainError("DATA_UNAVAILABLE", "The household could not be deleted.", 503, True) from exc
+

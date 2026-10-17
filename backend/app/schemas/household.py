@@ -246,6 +246,10 @@ class CreateHouseholdCommand(StrictModel):
     schema_version: Literal[1] = 1
     idempotency_key: IdempotencyKey
     name: HouseholdDisplayName
+    address: Annotated[str, StringConstraints(min_length=1, max_length=256)] | None = None
+    lat: float | None = None
+    lng: float | None = None
+    place_id: Annotated[str, StringConstraints(min_length=1, max_length=128)] | None = None
 
     @field_validator("name")
     @classmethod
@@ -253,6 +257,7 @@ class CreateHouseholdCommand(StrictModel):
         if any(category(character) == "Cc" for character in value):
             raise ValueError("name must be a single-line display name")
         return value
+
 
 
 class ApiResult(StrictModel):
