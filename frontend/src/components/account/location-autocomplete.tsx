@@ -55,6 +55,7 @@ type MapsStatus = "loading" | "ready" | "unavailable";
 
 const MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const MAPS_SCRIPT_ID = "google-maps-places-script";
+const MAPS_READY_CALLBACK = "__ecoloopGoogleMapsReady";
 let mapsLoaderPromise: Promise<GoogleMapsNamespace> | null = null;
 
 function loadGoogleMaps(apiKey: string): Promise<GoogleMapsNamespace> {
@@ -64,27 +65,32 @@ function loadGoogleMaps(apiKey: string): Promise<GoogleMapsNamespace> {
   if (mapsLoaderPromise) return mapsLoaderPromise;
 
   mapsLoaderPromise = new Promise<GoogleMapsNamespace>((resolve, reject) => {
-    const handleLoad = () => {
+    const clearReadyCallback = () => {
+      delete window.__ecoloopGoogleMapsReady;
+    };
+    const handleReady = () => {
+      clearReadyCallback();
       if (window.google?.maps?.importLibrary) {
         resolve(window.google.maps);
       } else {
         reject(new Error("Google Maps loaded without the library importer."));
       }
     };
-    const handleError = () => reject(new Error("Google Maps failed to load."));
+    const handleError = () => {
+      clearReadyCallback();
+      reject(new Error("Google Maps failed to load."));
+    };
 
     const existingScript = document.getElementById(MAPS_SCRIPT_ID) as HTMLScriptElement | null;
     if (existingScript) {
-      existingScript.addEventListener("load", handleLoad, { once: true });
-      existingScript.addEventListener("error", handleError, { once: true });
-      return;
+      existingScript.remove();
     }
 
+    window.__ecoloopGoogleMapsReady = handleReady;
     const script = document.createElement("script");
     script.id = MAPS_SCRIPT_ID;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&libraries=places&v=weekly&auth_referrer_policy=origin`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&libraries=places&v=weekly&auth_referrer_policy=origin&callback=${MAPS_READY_CALLBACK}`;
     script.async = true;
-    script.addEventListener("load", handleLoad, { once: true });
     script.addEventListener("error", handleError, { once: true });
     document.head.appendChild(script);
   }).catch((error: unknown) => {
@@ -256,6 +262,7 @@ export function LocationAutocomplete({
 
 declare global {
   interface Window {
+    __ecoloopGoogleMapsReady?: () => void;
     gm_authFailure?: () => void;
     google?: {
       maps?: GoogleMapsNamespace;

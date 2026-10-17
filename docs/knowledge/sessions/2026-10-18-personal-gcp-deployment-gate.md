@@ -32,7 +32,11 @@ entry state when Maps is unavailable. Maps JavaScript API and Places API (New)
 were enabled in `ecoloop-511918`. An initially supplied key belonged to another
 project and was rejected at runtime. It was replaced by the dedicated
 `EcoLoop web Maps autocomplete` key in `ecoloop-511918`, restricted to those
-two APIs and `https://ecoloop-web-722209767801.asia-south1.run.app/*`.
+two APIs and `https://ecoloop-web-722209767801.asia-south1.run.app/*`. A second
+live failure isolated a client readiness race: the direct Maps script used
+`loading=async`, but the component treated the script download event as Maps
+readiness. The loader now waits for Google's explicit callback before calling
+`importLibrary("places")`.
 
 ## Cloud and security configuration
 
@@ -54,6 +58,7 @@ two APIs and `https://ecoloop-web-722209767801.asia-south1.run.app/*`.
 - The required `members.uid` collection-group single-field index was applied manually from the repository declaration after the initial signed-in request exposed the missing-index failure. Automating rules/index deployment remains follow-up work.
 - Historical browser/API keys that previously appeared in local workflow history should be rotated or restricted where they remain active. The blocked unpublished commit containing an old key was rewritten before the successful push.
 - The replacement Maps browser key is stored only as an encrypted GitHub Actions secret, not committed. GitHub Actions run `39067364235`, attempt 2, successfully rebuilt and deployed the frontend with that project-owned key. Live suggestion acceptance remains pending a fresh signed-in household setup after key-restriction propagation.
+- A bounded origin-referrer probe confirmed that the deployed key loads the Maps JavaScript bootstrap without a known authorization error, and a Places API (New) sample autocomplete request returned suggestions. These checks isolated the remaining failure to client initialization rather than the key, billing, API activation, or referrer restriction.
 - The rejected owner-supplied key was shared in conversation and should be rotated in its owning Google Cloud project.
 - Before enabling Gemini/ADK, separately review model access, bounded cost, managed Sessions/Memory Bank, privacy-safe telemetry, and acceptance evidence.
 
