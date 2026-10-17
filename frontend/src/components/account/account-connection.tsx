@@ -609,8 +609,8 @@ export function AccountConnection() {
           </div>
           {onboardingStep === "name" && (
             <form onSubmit={reviewHousehold} className="space-y-3">
-              <div className="relative overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-sm">
-                <div className="absolute inset-y-0 left-0 w-1.5 bg-primary" aria-hidden="true" />
+              <div className="relative z-20 overflow-visible rounded-2xl border border-line bg-white p-4 shadow-sm">
+                <div className="absolute inset-y-0 left-0 w-1.5 rounded-l-2xl bg-primary" aria-hidden="true" />
                 <div className="pl-2">
                   <div className="flex items-start justify-between gap-3">
                     <div>

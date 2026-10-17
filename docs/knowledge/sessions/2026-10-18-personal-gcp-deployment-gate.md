@@ -36,7 +36,9 @@ two APIs and `https://ecoloop-web-722209767801.asia-south1.run.app/*`. A second
 live failure isolated a client readiness race: the direct Maps script used
 `loading=async`, but the component treated the script download event as Maps
 readiness. The loader now waits for Google's explicit callback before calling
-`importLibrary("places")`.
+`importLibrary("places")`. After live suggestions were confirmed, the household
+setup panel was changed from clipping overflow to an explicit overlay stacking
+context so the Maps suggestion list remains visible above the following UI.
 
 ## Cloud and security configuration
 
