@@ -112,15 +112,20 @@ def create_household(uid: str, command: CreateHouseholdCommand) -> dict[str, str
         if quota_count >= MAX_HOUSEHOLD_CREATIONS_PER_UTC_DAY:
             raise DomainError("HOUSEHOLD_CREATION_LIMIT", "The daily household creation limit has been reached.", 429, True)
 
-        transaction.create(
-            household_ref,
-            {
-                "schema_version": 1,
-                "name": command.name,
-                "created_at": created_at,
-                "created_by": uid,
-            },
-        )
+        household_data: dict[str, Any] = {
+            "schema_version": 1,
+            "name": command.name,
+            "created_at": created_at,
+            "created_by": uid,
+        }
+        if command.address:
+            household_data["address"] = command.address
+        if command.lat is not None and command.lng is not None:
+            household_data["location"] = {"lat": command.lat, "lng": command.lng}
+        if command.place_id:
+            household_data["place_id"] = command.place_id
+
+        transaction.create(household_ref, household_data)
         transaction.create(
             member_ref,
             {

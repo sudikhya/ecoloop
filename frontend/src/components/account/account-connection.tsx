@@ -28,6 +28,7 @@ import { CanonicalCommandControls } from "./command-controls";
 import { OutcomeControls } from "./outcome-controls";
 import { PrivateHistory } from "./private-history";
 import { ShareControls } from "./share-controls";
+import { LocationAutocomplete, type SelectedLocation } from "./location-autocomplete";
 
 type AuthState =
   | "loading"
@@ -55,6 +56,7 @@ export function AccountConnection() {
   const [membershipError, setMembershipError] = useState("");
   const [createHouseholdOpen, setCreateHouseholdOpen] = useState(false);
   const [householdName, setHouseholdName] = useState("");
+  const [householdLocation, setHouseholdLocation] = useState<SelectedLocation | null>(null);
   const [onboardingStep, setOnboardingStep] = useState<"name" | "review" | "complete">("name");
   const [createIdempotencyKey, setCreateIdempotencyKey] = useState("");
   const [createdHousehold, setCreatedHousehold] = useState<CreatedHousehold | null>(null);
@@ -365,7 +367,18 @@ export function AccountConnection() {
     try {
       const token = await user.getIdToken();
       if (controller.signal.aborted) return;
-      const result = await createCanonicalHousehold(token, attempt.name, attempt.idempotencyKey, controller.signal);
+      const result = await createCanonicalHousehold(
+        token,
+        attempt.name,
+        attempt.idempotencyKey,
+        householdLocation ? {
+          address: householdLocation.address,
+          lat: householdLocation.lat,
+          lng: householdLocation.lng,
+          place_id: householdLocation.place_id,
+        } : undefined,
+        controller.signal,
+      );
       if (controller.signal.aborted || identityRef.current !== attempt.uid) return;
       const scopeIsCurrent = householdScopeRevisionRef.current === startingScopeRevision;
       if (pendingHouseholdCreationsRef.current.get(attempt.uid)?.idempotencyKey === attempt.idempotencyKey) {
@@ -615,6 +628,12 @@ export function AccountConnection() {
                     <Input id="new-household-name" className="mt-2 bg-surface-muted text-sm" required maxLength={60} autoComplete="off" value={householdName} onChange={(event) => setHouseholdName(event.target.value)} placeholder="For example, My kitchen" aria-describedby="new-household-help" />
                     <p id="new-household-help" className="mt-2 text-xs leading-relaxed text-muted">Choose a name you’ll recognize. No food or personal details are needed.</p>
                   </div>
+                  <div className="mt-4 border-t border-line pt-3">
+                    <LocationAutocomplete
+                      defaultValue={householdLocation?.address ?? ""}
+                      onLocationSelected={(loc) => setHouseholdLocation(loc)}
+                    />
+                  </div>
                 </div>
               </div>
               <Card className="bg-primary-soft/60 p-4 text-xs leading-relaxed text-primary">Your personal order history stays private. This setup does not invite other people or share records.</Card>
@@ -626,6 +645,12 @@ export function AccountConnection() {
               <div className="rounded-2xl bg-surface-muted p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-muted">Household name</p>
                 <p className="mt-1 break-words text-lg font-semibold text-primary">{householdName}</p>
+                {householdLocation?.address && (
+                  <div className="mt-3 border-t border-line/60 pt-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted">Location</p>
+                    <p className="mt-0.5 text-sm text-foreground">{householdLocation.address}</p>
+                  </div>
+                )}
               </div>
               {process.env.NEXT_PUBLIC_ECOLOOP_ENABLE_HOUSEHOLD_CREATE !== "true" && <p role="status" className="text-sm leading-relaxed text-muted">Household creation is currently disabled for this app. Your name is saved only on this page; no request has been sent.</p>}
               {createError && <Card role="alert" className="space-y-2 border border-danger/25 bg-danger-soft/40 p-4"><p className="text-sm font-semibold text-danger">{createError.message}</p>{createError.requestId && <p className="text-xs text-muted">Request reference: {createError.requestId}</p>}{(createError.code === "timeout" || createError.code === "network" || createError.code === "unavailable") && <p className="text-xs text-muted">Retrying keeps the same request reference so the service can recognize this creation attempt.</p>}</Card>}
@@ -640,6 +665,9 @@ export function AccountConnection() {
             <div className="space-y-3" role="status">
               <div className="rounded-2xl bg-primary-soft p-4">
                 <p className="font-semibold text-primary">{createdHousehold.name}</p>
+                {createdHousehold.address && (
+                  <p className="mt-1 text-xs text-muted">Location: {createdHousehold.address}</p>
+                )}
                 <p className="mt-1 break-all text-xs text-muted">Household ID: {createdHousehold.household_id}</p>
                 <p className="mt-1 text-xs text-muted">Your role: {createdHousehold.role}</p>
               </div>
@@ -693,7 +721,7 @@ export function AccountConnection() {
                     setCreateHouseholdOpen(false);
                   }}
                 >
-                  {membership.name} · {membership.role.toLowerCase()}
+                  {membership.name} {membership.address ? `(${membership.address.split(",")[0]})` : ""} · {membership.role.toLowerCase()}
                 </Button>
                 {membership.role.toUpperCase() === "OWNER" && (
                   <Button
