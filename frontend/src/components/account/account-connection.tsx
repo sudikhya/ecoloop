@@ -984,12 +984,16 @@ export function AccountConnection() {
           key={`${user.uid}:${selectedHousehold}:${revision}`}
           className="space-y-6"
         >
-          <CanonicalCommandControls
-            getIdToken={getIdToken}
-            householdId={selectedHousehold}
-            enabled={process.env.NEXT_PUBLIC_ECOLOOP_ENABLE_COMMANDS === "true"}
-            onCommitted={commandCommitted}
-          />
+          {data && (
+            <CanonicalCommandControls
+              getIdToken={getIdToken}
+              householdId={selectedHousehold}
+              enabled={
+                process.env.NEXT_PUBLIC_ECOLOOP_ENABLE_COMMANDS === "true"
+              }
+              onCommitted={commandCommitted}
+            />
+          )}
           <OutcomeControls
             getIdToken={getIdToken}
             householdId={selectedHousehold}

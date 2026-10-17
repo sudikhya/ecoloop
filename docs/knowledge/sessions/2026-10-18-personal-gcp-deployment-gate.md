@@ -48,6 +48,12 @@ the same state transition that activates Home, Kitchen, Ask, and Shop. Deleting
 the last household reopens the setup flow instead of leaving an empty chooser
 with no creation controls.
 
+The account page now keeps `Update household records` hidden until the member
+successfully loads either the selected household's kitchen or shopping records.
+Changing households or committing a change clears the read result and hides the
+update controls again, requiring a fresh canonical read before another update
+flow is presented.
+
 ## Cloud and security configuration
 
 - Billing uses the owner's reviewed billing account; `ecoloop-511918` was the only linked project at review time.
