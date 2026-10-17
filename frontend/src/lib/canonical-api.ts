@@ -101,3 +101,18 @@ export async function listCanonicalHouseholds(idToken: string, signal?: AbortSig
   }
   return rows as HouseholdMembership[];
 }
+
+export async function deleteCanonicalHousehold(idToken: string, householdId: string, signal?: AbortSignal): Promise<void> {
+  if (!householdId || !/^[A-Za-z0-9_-]{1,128}$/.test(householdId)) {
+    throw new CanonicalApiError("validation", "A valid household ID is required to delete.");
+  }
+  const payload = await canonicalRequest("households", idToken, null, {
+    method: "DELETE",
+    recordId: householdId,
+    signal,
+  });
+  if (!object(payload) || payload.schema_version !== 1 || !boundedString(payload.request_id, 128)) {
+    throw new CanonicalApiError("invalid_response", "The household service returned an unexpected deletion response.");
+  }
+}
+

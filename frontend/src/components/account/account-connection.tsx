@@ -18,6 +18,7 @@ import { useLiveHousehold } from "@/lib/live-household";
 import {
   CanonicalApiError,
   createCanonicalHousehold,
+  deleteCanonicalHousehold,
   readCanonicalRecords,
   listCanonicalHouseholds,
   type CanonicalData,
@@ -394,6 +395,37 @@ export function AccountConnection() {
     }
   }
 
+  const [deletePending, setDeletePending] = useState<string | null>(null);
+
+  async function deleteHousehold(targetHouseholdId: string) {
+    if (!user || authState !== "signed-in" || busy || deletePending) return;
+    if (!window.confirm("Are you sure you want to delete this household? This action cannot be undone.")) return;
+
+    setDeletePending(targetHouseholdId);
+    try {
+      const token = await user.getIdToken();
+      await deleteCanonicalHousehold(token, targetHouseholdId);
+
+      // If the deleted household was active/selected, clear selection
+      if (selectedHousehold === targetHouseholdId) {
+        clearRecords();
+        setHouseholdId("");
+        setSelectedHousehold("");
+        liveHousehold.setHouseholdId("");
+      }
+
+      // Refresh memberships list
+      setMemberships((current) => current.filter((m) => m.household_id !== targetHouseholdId));
+      setNotice("Household deleted successfully.");
+      setRevision((v) => v + 1);
+    } catch (err) {
+      const msg = err instanceof CanonicalApiError ? err.message : "Failed to delete household.";
+      setNotice(msg);
+    } finally {
+      setDeletePending(null);
+    }
+  }
+
   const canChangeHouseholdName = !createError || ["validation", "unauthenticated", "forbidden"].includes(createError.code);
   const createdHouseholdIsSelected = Boolean(createdHousehold && selectedHousehold === createdHousehold.household_id);
 
@@ -646,9 +678,55 @@ export function AccountConnection() {
             </a>
           </div>
         )}
-        {memberships.length > 0 && <div className="space-y-2" role="group" aria-label="Your households">{memberships.map((membership) => <Button key={membership.household_id} type="button" fullWidth variant={selectedHousehold === membership.household_id ? "primary" : "secondary"} onClick={() => { updateHousehold(membership.household_id); setSelectedHousehold(membership.household_id); liveHousehold.setHouseholdId(membership.household_id); setCreateHouseholdOpen(false); }}>{membership.name} · {membership.role.toLowerCase()}</Button>)}
-          {!createHouseholdOpen && <Button type="button" variant="ghost" onClick={() => { setHouseholdName(""); setOnboardingStep("name"); setCreateError(null); setCreateIdempotencyKey(""); setCreatedHousehold(null); setCreateHouseholdOpen(true); }}>Create another household</Button>}
-        </div>}
+        {memberships.length > 0 && (
+          <div className="space-y-2" role="group" aria-label="Your households">
+            {memberships.map((membership) => (
+              <div key={membership.household_id} className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  fullWidth
+                  variant={selectedHousehold === membership.household_id ? "primary" : "secondary"}
+                  onClick={() => {
+                    updateHousehold(membership.household_id);
+                    setSelectedHousehold(membership.household_id);
+                    liveHousehold.setHouseholdId(membership.household_id);
+                    setCreateHouseholdOpen(false);
+                  }}
+                >
+                  {membership.name} · {membership.role.toLowerCase()}
+                </Button>
+                {membership.role.toUpperCase() === "OWNER" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-danger hover:bg-danger-soft/50 min-h-11 px-3 text-xs"
+                    disabled={busy || deletePending === membership.household_id}
+                    onClick={() => void deleteHousehold(membership.household_id)}
+                    aria-label={`Delete household ${membership.name}`}
+                  >
+                    {deletePending === membership.household_id ? "Deleting…" : "Delete"}
+                  </Button>
+                )}
+              </div>
+            ))}
+            {!createHouseholdOpen && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setHouseholdName("");
+                  setOnboardingStep("name");
+                  setCreateError(null);
+                  setCreateIdempotencyKey("");
+                  setCreatedHousehold(null);
+                  setCreateHouseholdOpen(true);
+                }}
+              >
+                Create another household
+              </Button>
+            )}
+          </div>
+        )}
         {!membershipLoading && !membershipError && user && memberships.length === 0 && <p className="rounded-xl bg-primary-soft p-3 text-sm text-primary">No household membership yet. Create your household above to begin.</p>}
         <form onSubmit={submitHousehold} className="space-y-3">
           <label
