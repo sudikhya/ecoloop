@@ -29,9 +29,10 @@ container build did not receive `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`. The fallback
 key was removed, the build/deployment path now requires the GitHub Actions
 secret `GOOGLE_MAPS_BROWSER_API_KEY`, and the UI presents an explicit manual
 entry state when Maps is unavailable. Maps JavaScript API and Places API (New)
-were enabled in `ecoloop-511918`. The owner-supplied Maps key does not match the
-Firebase browser key in that project, so its owning project must independently
-have billing, both APIs, and the deployed HTTPS referrer authorized.
+were enabled in `ecoloop-511918`. An initially supplied key belonged to another
+project and was rejected at runtime. It was replaced by the dedicated
+`EcoLoop web Maps autocomplete` key in `ecoloop-511918`, restricted to those
+two APIs and `https://ecoloop-web-722209767801.asia-south1.run.app/*`.
 
 ## Cloud and security configuration
 
@@ -52,7 +53,8 @@ have billing, both APIs, and the deployed HTTPS referrer authorized.
 - The repository Firestore rules/indexes were not deployed by this workflow; the database retains the Firebase production-mode deny-all client rule. Backend Admin SDK access is therefore the current data path.
 - The required `members.uid` collection-group single-field index was applied manually from the repository declaration after the initial signed-in request exposed the missing-index failure. Automating rules/index deployment remains follow-up work.
 - Historical browser/API keys that previously appeared in local workflow history should be rotated or restricted where they remain active. The blocked unpublished commit containing an old key was rewritten before the successful push.
-- The owner-supplied Maps browser key was stored only as an encrypted GitHub Actions secret, not committed. Because it was shared in conversation and belongs to a different Google Cloud project, rotate it after live verification and restrict the replacement to Maps JavaScript API, Places API (New), and `https://ecoloop-web-722209767801.asia-south1.run.app/*`.
+- The replacement Maps browser key is stored only as an encrypted GitHub Actions secret, not committed. GitHub Actions run `39067364235`, attempt 2, successfully rebuilt and deployed the frontend with that project-owned key. Live suggestion acceptance remains pending a fresh signed-in household setup after key-restriction propagation.
+- The rejected owner-supplied key was shared in conversation and should be rotated in its owning Google Cloud project.
 - Before enabling Gemini/ADK, separately review model access, bounded cost, managed Sessions/Memory Bank, privacy-safe telemetry, and acceptance evidence.
 
 Architecture and decision pointers: [architecture](../ARCHITECTURE.md), [decisions](../DECISIONS.md), [current MVP specification](../../planning/CURRENT_MVP_SPEC.md), and [implementation plan](../../planning/IMPLEMENTATION_PLAN.md).
