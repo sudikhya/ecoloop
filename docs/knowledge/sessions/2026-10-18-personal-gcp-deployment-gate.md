@@ -40,6 +40,14 @@ readiness. The loader now waits for Google's explicit callback before calling
 setup panel was changed from clipping overflow to an explicit overlay stacking
 context so the Maps suggestion list remains visible above the following UI.
 
+The account flow was then corrected to reconcile a successful household
+creation into the signed-in membership list immediately. The empty-membership
+message now disappears when creation succeeds, the new household is shown in
+the chooser without a reload, and list-button and manual-ID selection both use
+the same state transition that activates Home, Kitchen, Ask, and Shop. Deleting
+the last household reopens the setup flow instead of leaving an empty chooser
+with no creation controls.
+
 ## Cloud and security configuration
 
 - Billing uses the owner's reviewed billing account; `ecoloop-511918` was the only linked project at review time.
@@ -54,8 +62,12 @@ context so the Maps suggestion list remains visible above the following UI.
 
 ## Verification notes and follow-up
 
-- Frontend TypeScript checking and lint passed locally after the Maps autocomplete update.
+- Frontend TypeScript checking and lint passed locally after the Maps autocomplete and household membership updates.
 - A local Next.js production build could not complete because Turbopack was denied permission to bind its helper port in the local execution environment. The same Docker production build completed successfully in GitHub Actions.
+- The household membership update also completed a local production build with
+  Next's webpack builder; this bypassed the host-specific Turbopack helper-port
+  restriction while exercising the same application routes and TypeScript
+  compilation.
 - The repository Firestore rules/indexes were not deployed by this workflow; the database retains the Firebase production-mode deny-all client rule. Backend Admin SDK access is therefore the current data path.
 - The required `members.uid` collection-group single-field index was applied manually from the repository declaration after the initial signed-in request exposed the missing-index failure. Automating rules/index deployment remains follow-up work.
 - Historical browser/API keys that previously appeared in local workflow history should be rotated or restricted where they remain active. The blocked unpublished commit containing an old key was rewritten before the successful push.
@@ -68,4 +80,4 @@ Architecture and decision pointers: [architecture](../ARCHITECTURE.md), [decisio
 
 ## Lessons
 
-Enable the Firestore API before creating the database, keep Firebase and compute in the same named project, and deploy required Firestore indexes alongside the application. Treat push protection as a release gate: removing a secret from the latest file is insufficient if it remains in an unpublished commit being pushed. Public browser-service keys still require explicit build-time injection, narrow HTTPS referrer and API restrictions, and a visible degraded UI state; never hide a stale fallback key in source.
+Enable the Firestore API before creating the database, keep Firebase and compute in the same named project, and deploy required Firestore indexes alongside the application. Treat push protection as a release gate: removing a secret from the latest file is insufficient if it remains in an unpublished commit being pushed. Public browser-service keys still require explicit build-time injection, narrow HTTPS referrer and API restrictions, and a visible degraded UI state; never hide a stale fallback key in source. A successful canonical mutation must also update or revalidate its dependent client views; otherwise the backend fact and the visible membership state diverge until reload.

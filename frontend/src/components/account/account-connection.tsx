@@ -286,6 +286,19 @@ export function AccountConnection() {
     liveHousehold.setHouseholdId("");
   }
 
+  function selectHousehold(value: string, message = "") {
+    if (busy || createRequestRef.current) return;
+    const scope = value.trim();
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(scope)) return;
+    householdScopeRevisionRef.current += 1;
+    setHouseholdId(scope);
+    setSelectedHousehold(scope);
+    liveHousehold.setHouseholdId(scope);
+    setCreateHouseholdOpen(false);
+    setRevision((current) => current + 1);
+    clearRecords(message);
+  }
+
   async function loadRecords(kind: "kitchen" | "shopping") {
     if (!user) {
       setDataError(
@@ -331,14 +344,10 @@ export function AccountConnection() {
 
   function submitHousehold(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || createRequestRef.current) return;
-    const scope = householdId.trim();
-    if (!/^[A-Za-z0-9_-]{1,128}$/.test(scope)) return;
-    householdScopeRevisionRef.current += 1;
-    setSelectedHousehold(scope);
-    liveHousehold.setHouseholdId(scope);
-    setRevision((value) => value + 1);
-    clearRecords("Household selected. Load records to check your access.");
+    selectHousehold(
+      householdId,
+      "Household selected. The household areas are ready to load.",
+    );
   }
 
   function reviewHousehold(event: FormEvent<HTMLFormElement>) {
@@ -392,6 +401,14 @@ export function AccountConnection() {
         householdScopeRevisionRef.current += 1;
         setRevision((value) => value + 1);
       }
+      setMemberships((current) => [
+        result,
+        ...current.filter(
+          (membership) => membership.household_id !== result.household_id,
+        ),
+      ]);
+      setMembershipError("");
+      setCreateHouseholdOpen(false);
       setCreatedHousehold(result);
       setOnboardingStep("complete");
       setNotice(scopeIsCurrent ? "Household created and selected for this tab." : "Household created. Your newer household selection was kept.");
@@ -427,8 +444,19 @@ export function AccountConnection() {
         liveHousehold.setHouseholdId("");
       }
 
-      // Refresh memberships list
-      setMemberships((current) => current.filter((m) => m.household_id !== targetHouseholdId));
+      const remainingMemberships = memberships.filter(
+        (membership) => membership.household_id !== targetHouseholdId,
+      );
+      setMemberships(remainingMemberships);
+      if (remainingMemberships.length === 0) {
+        setHouseholdName("");
+        setHouseholdLocation(null);
+        setOnboardingStep("name");
+        setCreateIdempotencyKey("");
+        setCreatedHousehold(null);
+        setCreateError(null);
+        setCreateHouseholdOpen(true);
+      }
       setNotice("Household deleted successfully.");
       setRevision((v) => v + 1);
     } catch (err) {
@@ -715,10 +743,10 @@ export function AccountConnection() {
                   fullWidth
                   variant={selectedHousehold === membership.household_id ? "primary" : "secondary"}
                   onClick={() => {
-                    updateHousehold(membership.household_id);
-                    setSelectedHousehold(membership.household_id);
-                    liveHousehold.setHouseholdId(membership.household_id);
-                    setCreateHouseholdOpen(false);
+                    selectHousehold(
+                      membership.household_id,
+                      `${membership.name} selected. The household areas are ready to load.`,
+                    );
                   }}
                 >
                   {membership.name} {membership.address ? `(${membership.address.split(",")[0]})` : ""} · {membership.role.toLowerCase()}
@@ -755,7 +783,16 @@ export function AccountConnection() {
             )}
           </div>
         )}
-        {!membershipLoading && !membershipError && user && memberships.length === 0 && <p className="rounded-xl bg-primary-soft p-3 text-sm text-primary">No household membership yet. Create your household above to begin.</p>}
+        {!membershipLoading &&
+          !membershipError &&
+          user &&
+          memberships.length === 0 &&
+          !createdHousehold && (
+            <p className="rounded-xl bg-primary-soft p-3 text-sm text-primary">
+              No household membership yet. Create your household above to
+              begin.
+            </p>
+          )}
         <form onSubmit={submitHousehold} className="space-y-3">
           <label
             htmlFor="household-id"
