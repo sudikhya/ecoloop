@@ -18,6 +18,7 @@ jobs:
       id-token: write
     env:
       PROJECT_ID: ecoloop-511918
+      PROJECT_NUMBER: "722209767801"
       REGION: asia-south1
       REPOSITORY: ecoloop
     steps:
@@ -123,17 +124,18 @@ jobs:
             --quiet
 
           WEB_URL=$(gcloud run services describe ecoloop-web --project="${{ env.PROJECT_ID }}" --region="${{ env.REGION }}" --format='value(status.url)')
+          PUBLIC_WEB_URL="https://ecoloop-web-${{ env.PROJECT_NUMBER }}.${{ env.REGION }}.run.app"
 
           gcloud run services update ecoloop-api \
             --project="${{ env.PROJECT_ID }}" \
             --region="${{ env.REGION }}" \
-            --update-env-vars="BACKEND_CORS_ORIGINS=[\"${WEB_URL}\"]" \
+            --update-env-vars="^@^BACKEND_CORS_ORIGINS=[\"${WEB_URL}\",\"${PUBLIC_WEB_URL}\"]" \
             --quiet
 
           curl --fail --silent --show-error --retry 6 --retry-delay 5 "${API_URL}/api/v1/health" >/dev/null
-          curl --fail --silent --show-error --retry 6 --retry-delay 5 "${WEB_URL}" >/dev/null
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 "${PUBLIC_WEB_URL}" >/dev/null
 
           echo "=========================================================="
-          echo "ECOLOOP WEB DEPLOYED: $WEB_URL"
+          echo "ECOLOOP WEB DEPLOYED: $PUBLIC_WEB_URL"
           echo "ECOLOOP API DEPLOYED: $API_URL"
           echo "=========================================================="
