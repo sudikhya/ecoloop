@@ -22,6 +22,29 @@ The owner's next manual NGO attempt still showed the unavailable fallback. The f
 
 Lesson: the lower-level Places autocomplete data API makes loading, stale-query cancellation, billing sessions, accessibility and overlay stacking explicit, which is more reliable for the shared household/NGO form than depending on the custom element's internal dropdown lifecycle. For code-split routes, confirm public build-time settings in the bundle for the route that imports the feature; the login route does not contain the NGO dashboard chunk.
 
+## NGO route-plan confirmation hotfix
+
+Production logs isolated two failures for the same NGO plan command. The first
+request spent 27.2 seconds in the planner and exceeded the API's 25-second
+Agent Runtime limit. The retry returned from the planner in 15.0 seconds, then
+the API rejected its own proposal at the Pydantic-to-Firestore serialization
+boundary before the transaction queued any writes. The UI therefore displayed
+the ambiguous retry-key warning even though the agent had responded.
+
+The planner budget is now 45 seconds inside the existing 60-second Cloud Run
+request limit, while the browser waits 55 seconds. Route proposals are first
+assembled and validated with typed Python values, then Decimal quantities alone
+are converted to Firestore-compatible strings. Datetimes remain Firestore
+timestamps and the response is serialized independently from the stored
+record. Per the owner's direction, no additional evaluation was run; manual
+owner testing is the acceptance step after deployment.
+
+Lesson: do not round-trip a newly assembled canonical record through response
+JSON before validating or persisting it. Validate the typed record once, then
+derive separate storage and response representations. Agent, API and browser
+deadlines must also be nested beneath the platform request deadline with room
+for the canonical transaction.
+
 The household flow accepts bounded text, one image or recorded/uploaded audio and receives editable extraction candidates only. Saving requires five explicit declarations plus confirmed item, amount/unit, preparation/packaging state, canonical household location and a future availability deadline. The NGO flow is separately authenticated and server-allowlisted, reads only confirmed eligible unexpired pilot records, accepts a food/category ask with amount/unit and mapped origin, and saves a validated advisory proposal with at most ten stops and an explicit unmet amount.
 
 The planner can call only a bounded surplus-list tool and Google Routes. Route distance, duration, ordering and encoded geometry must come from the provider response. Neither agent has a canonical write, reservation, dispatch, contact or stock-mutation tool. Media bytes are request-scoped and are not written to Firestore, agent sessions or artifacts.

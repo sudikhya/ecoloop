@@ -312,16 +312,26 @@ async def plan_ngo_request(
             current_request, current_rows, candidate, datetime.now(timezone.utc)
         )
 
-        stored = candidate.model_dump(mode="json") | {
-            "schema_version": 1,
-            "proposal_id": proposal_id,
-            "ngo_id": principal.ngo_id,
-            "created_by": principal.uid,
-            "request_version": current_request.version,
-            "origin": current_request.origin.model_dump(mode="json"),
-            "created_at": now,
-        }
-        result = {"proposal": _serialize_proposal(stored)}
+        proposal = RouteProposalRecord.model_validate(
+            candidate.model_dump(mode="python")
+            | {
+                "schema_version": 1,
+                "proposal_id": proposal_id,
+                "ngo_id": principal.ngo_id,
+                "created_by": principal.uid,
+                "request_version": current_request.version,
+                "origin": current_request.origin.model_dump(mode="python"),
+                "created_at": now,
+            }
+        )
+        result = {"proposal": proposal.model_dump(mode="json")}
+        stored = proposal.model_dump(mode="python")
+        stored["matched_amount"] = str(proposal.matched_amount)
+        stored["unmet_amount"] = str(proposal.unmet_amount)
+        for stored_stop, proposal_stop in zip(
+            stored["selected_stops"], proposal.selected_stops, strict=True
+        ):
+            stored_stop["pickup_amount"] = str(proposal_stop.pickup_amount)
         transaction.create(proposal_ref, stored)
         transaction.update(
             request_ref,

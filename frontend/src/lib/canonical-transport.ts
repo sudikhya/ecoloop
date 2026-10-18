@@ -228,7 +228,7 @@ export async function recoveryRequest(
   }
   const controller = new AbortController();
   const agentRequest = ["surplus-intake-text", "surplus-intake-media", "ngo-plan"].includes(resource);
-  const timeout = window.setTimeout(() => controller.abort(), agentRequest ? 40_000 : 12_000);
+  const timeout = window.setTimeout(() => controller.abort(), agentRequest ? 55_000 : 12_000);
   const abort = () => controller.abort(options.signal?.reason);
   if (options.signal?.aborted) controller.abort(options.signal.reason);
   options.signal?.addEventListener("abort", abort, { once: true });

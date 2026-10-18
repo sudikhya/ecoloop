@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     SURPLUS_INTAKE_AGENT_RESOURCE: str | None = None
     COLLECTION_PLANNER_AGENT_RESOURCE: str | None = None
     AGENT_RUNTIME_LOCATION: str = "asia-south1"
-    SURPLUS_AGENT_TIMEOUT_SECONDS: int = 25
+    SURPLUS_AGENT_TIMEOUT_SECONDS: int = 45
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
