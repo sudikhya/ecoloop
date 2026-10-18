@@ -36,10 +36,11 @@ The owner approved required API enablement, a bounded twelve-case evaluation wit
 - Both runtimes use one CPU, 4 GiB memory, minimum zero, maximum one, concurrency two, Agent Identity and prompt/response-content capture disabled.
 - Vertex AI/Agent Platform, Routes and Secret Manager APIs are enabled. The existing Cloud Run API identity received the standard Vertex AI User role required to invoke the runtimes. Its existing Cloud Build identity received the standard Cloud Build builder role after the project build bucket rejected source reads.
 - The Surplus Intake live contract evaluation passed all seven cases. The Collection Planner evaluation was interrupted after two completed cases when the owner waived further validation; it is not claimed as passed.
-- Cloud Run API revision `ecoloop-api-00019-9bp` and web revision `ecoloop-web-00010-57f` receive 100% traffic. The stable web URL is `https://ecoloop-web-722209767801.asia-south1.run.app`.
+- The reviewed application and agent source was committed locally as `b3cb746` (`feat: add surplus recovery MVP`). No push was authorized or performed.
+- Both existing Agent Runtime resources were updated from that committed tree on 18 October 2026. Cloud Run API revision `ecoloop-api-00020-6bg` and web revision `ecoloop-web-00011-ltb`, built from images tagged `b3cb746`, receive 100% traffic. The stable web URL is `https://ecoloop-web-722209767801.asia-south1.run.app`.
 - One Firebase dummy NGO identity and matching active demo-only `ngo_accounts/{uid}` record were created. The random password is intentionally omitted from repository evidence.
 - An initial frontend image build missing its Firebase public browser key was cancelled and never deployed. The corrected replacement image was built and deployed.
-- No commit or push was made. Per the owner's direction, authenticated household/NGO browser acceptance and route behavior are left for manual testing.
+- Per the owner's direction, authenticated household/NGO browser acceptance and route behavior are left for manual testing.
 
 ## Read-only Google Cloud preflight
 
