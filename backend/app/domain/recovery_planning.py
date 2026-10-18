@@ -99,7 +99,11 @@ def _expected_selection(
     compatible = []
     for row in surplus_rows:
         try:
-            option = SurplusRecord.model_validate(row)
+            # Central NGO rows intentionally omit owner_uid. Restore only a
+            # validation placeholder; it is never returned or used for scope.
+            option = SurplusRecord.model_validate(
+                {"owner_uid": "central-surplus", **row}
+            )
         except ValidationError as exc:
             raise DomainError(
                 "DATA_UNAVAILABLE", "Central surplus data is invalid.", 503, True
