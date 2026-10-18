@@ -4,6 +4,14 @@
 
 The approved isolated household-surplus and dummy-NGO collection pilot is implemented and deployed to the single hackathon project `ecoloop-511918`. Two independent ADK projects run on Google Agent Runtime in `asia-south1`: `agents/surplus-intake` and `agents/collection-planner`. FastAPI remains the identity, authorization, eligibility, version, idempotency and canonical-mutation boundary. The frontend adds `/surplus`, `/ngo/login` and `/ngo`.
 
+## Production surplus-confirmation hotfix
+
+The deployed household confirmation command returned HTTP 503 because the canonical surplus builder included the `updated_by` audit field while the strict `SurplusRecord` validator rejected that field as undeclared. Validation happened before the Firestore transaction queued either create, so the observed failed command did not create a surplus or idempotency record.
+
+The schema now declares the audit field. The fix is committed locally as `842f48a` (`fix: accept surplus audit metadata`) and deployed as Cloud Run API revision `ecoloop-api-00021-wxj`, which receives 100% traffic. The image digest is `sha256:c0c22f66b31d742c5298d2a18f6b7dd00dc8291ad4b49e2cf907a30581761bc7`; the health endpoint returned HTTP 200 after rollout. A direct construction/serialization reproduction, targeted Ruff E/F/I and format checks, backend compilation and `git diff --check` passed. No frontend/backend unit tests ran.
+
+Lesson: when a strict record model validates the same dictionary that is written to Firestore, audit metadata must be part of that model (or intentionally excluded before validation). Otherwise a valid mutation can fail at its own serialization boundary before commit.
+
 The household flow accepts bounded text, one image or recorded/uploaded audio and receives editable extraction candidates only. Saving requires five explicit declarations plus confirmed item, amount/unit, preparation/packaging state, canonical household location and a future availability deadline. The NGO flow is separately authenticated and server-allowlisted, reads only confirmed eligible unexpired pilot records, accepts a food/category ask with amount/unit and mapped origin, and saves a validated advisory proposal with at most ten stops and an explicit unmet amount.
 
 The planner can call only a bounded surplus-list tool and Google Routes. Route distance, duration, ordering and encoded geometry must come from the provider response. Neither agent has a canonical write, reservation, dispatch, contact or stock-mutation tool. Media bytes are request-scoped and are not written to Firestore, agent sessions or artifacts.
