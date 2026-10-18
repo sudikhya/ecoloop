@@ -12,6 +12,14 @@ The schema now declares the audit field. The fix is committed locally as `842f48
 
 Lesson: when a strict record model validates the same dictionary that is written to Firestore, audit metadata must be part of that model (or intentionally excluded before validation). Otherwise a valid mutation can fail at its own serialization boundary before commit.
 
+## NGO Maps autocomplete hotfix
+
+The NGO origin field shared the household `PlaceAutocompleteElement`, but the deployed widget entered its unavailable fallback even though the browser key was restricted to the correct Cloud Run hostname and both Maps JavaScript and Places APIs were enabled. The shared location control now uses the supported `AutocompleteSuggestion.fetchAutocompleteSuggestions` data API with a fresh session token, a bounded six-result accessible listbox, keyboard selection and an explicit `Place.fetchFields` lookup for address, place ID and coordinates. The list is rendered at `z-[100]` so it remains above surrounding cards.
+
+Changed-file ESLint, TypeScript and `git diff --check` passed. Commit `0a44a5d` (`fix: use Maps suggestions in NGO planner`) is deployed as Cloud Run web revision `ecoloop-web-00012-mzc` with 100% traffic. A key/referrer diagnostic received the Maps script without key, referrer or API-activation rejection markers. No frontend/backend unit tests ran.
+
+Lesson: the lower-level Places autocomplete data API makes loading, stale-query cancellation, billing sessions, accessibility and overlay stacking explicit, which is more reliable for the shared household/NGO form than depending on the custom element's internal dropdown lifecycle.
+
 The household flow accepts bounded text, one image or recorded/uploaded audio and receives editable extraction candidates only. Saving requires five explicit declarations plus confirmed item, amount/unit, preparation/packaging state, canonical household location and a future availability deadline. The NGO flow is separately authenticated and server-allowlisted, reads only confirmed eligible unexpired pilot records, accepts a food/category ask with amount/unit and mapped origin, and saves a validated advisory proposal with at most ten stops and an explicit unmet amount.
 
 The planner can call only a bounded surplus-list tool and Google Routes. Route distance, duration, ordering and encoded geometry must come from the provider response. Neither agent has a canonical write, reservation, dispatch, contact or stock-mutation tool. Media bytes are request-scoped and are not written to Firestore, agent sessions or artifacts.
