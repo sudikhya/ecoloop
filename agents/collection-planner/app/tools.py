@@ -134,7 +134,7 @@ def calculate_collection_route(
         selected_stops_json: JSON array of one to ten validated selected stops.
 
     Returns:
-        Google route distance, duration, encoded polyline and unchanged stop order.
+        Google route distance, duration, encoded polyline and optimized stop order.
     """
     try:
         origin = Location.model_validate_json(origin_json)
@@ -146,10 +146,11 @@ def calculate_collection_route(
 
     payload = {
         "origin": _waypoint(origin),
-        "destination": _waypoint(stops[-1].location),
-        "intermediates": [_waypoint(stop.location) for stop in stops[:-1]],
+        "destination": _waypoint(origin),
+        "intermediates": [_waypoint(stop.location) for stop in stops],
         "travelMode": "DRIVE",
         "computeAlternativeRoutes": False,
+        "optimizeWaypointOrder": True,
         "languageCode": "en-IN",
         "units": "METRIC",
     }
@@ -158,6 +159,7 @@ def calculate_collection_route(
             "routes.distanceMeters",
             "routes.duration",
             "routes.polyline.encodedPolyline",
+            "routes.optimizedIntermediateWaypointIndex",
             "routes.legs.distanceMeters",
             "routes.legs.duration",
         )
@@ -186,6 +188,10 @@ def calculate_collection_route(
         polyline = route["polyline"]["encodedPolyline"]
         distance_meters = int(route["distanceMeters"])
         duration_seconds = _duration_seconds(route["duration"])
+        optimized_indices = route["optimizedIntermediateWaypointIndex"]
+        if sorted(optimized_indices) != list(range(len(stops))):
+            raise ValueError("invalid optimized stop order")
+        ordered_stops = [stops[index] for index in optimized_indices]
         if not polyline or distance_meters < 0 or duration_seconds < 0:
             raise ValueError("invalid route values")
     except Exception:
@@ -196,5 +202,6 @@ def calculate_collection_route(
         "distance_meters": distance_meters,
         "duration_seconds": duration_seconds,
         "encoded_polyline": polyline,
-        "ordered_surplus_ids": [stop.surplus_id for stop in stops],
+        "ordered_surplus_ids": [stop.surplus_id for stop in ordered_stops],
+        "ordered_stops": [stop.model_dump(mode="json") for stop in ordered_stops],
     }

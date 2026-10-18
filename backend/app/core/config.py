@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     FIREBASE_PROJECT_ID: str | None = None
     GOOGLE_CLOUD_PROJECT: str | None = None
+    GOOGLE_CLOUD_PROJECT_NUMBER: str | None = None
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -52,6 +53,16 @@ class Settings(BaseSettings):
         elif isinstance(v, list):
             return [str(origin).rstrip("/") for origin in v]
         raise ValueError("CORS origins must be a list or comma-separated string")
+
+    @field_validator("GOOGLE_CLOUD_PROJECT_NUMBER")
+    @classmethod
+    def validate_google_cloud_project_number(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not 6 <= len(normalized) <= 20 or not normalized.isdigit():
+            raise ValueError("GOOGLE_CLOUD_PROJECT_NUMBER must contain 6 to 20 digits")
+        return normalized
 
     @field_validator("BACKEND_CORS_ORIGINS")
     @classmethod

@@ -43,17 +43,23 @@ def _resource(value: str | None, label: str) -> str:
     project = (
         settings.GOOGLE_CLOUD_PROJECT or settings.FIREBASE_PROJECT_ID or ""
     ).strip()
+    project_number = (settings.GOOGLE_CLOUD_PROJECT_NUMBER or "").strip()
     location = settings.AGENT_RUNTIME_LOCATION.strip()
     resource = (value or "").strip()
     pattern = (
-        rf"^projects/{re.escape(project)}/locations/{re.escape(location)}"
-        r"/reasoningEngines/[^/]+$"
+        rf"^projects/(?P<project>[^/]+)/locations/{re.escape(location)}"
+        r"/reasoningEngines/(?P<engine>[^/]+)$"
     )
+    match = re.fullmatch(pattern, resource)
+    allowed_projects = {
+        identifier for identifier in (project, project_number) if identifier
+    }
     if (
         not settings.SURPLUS_PILOT_ENABLED
         or not project
         or not location
-        or re.fullmatch(pattern, resource) is None
+        or match is None
+        or match.group("project") not in allowed_projects
     ):
         raise DomainError(
             "RECOVERY_AGENT_UNAVAILABLE",

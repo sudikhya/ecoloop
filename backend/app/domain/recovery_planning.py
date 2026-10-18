@@ -141,9 +141,14 @@ def _validate_candidate(
             True,
         )
     expected = _expected_selection(record, surplus_rows, now)
-    expected_ids = [option.surplus_id for option, _ in expected]
+    expected_by_id = {
+        option.surplus_id: (option, expected_pickup)
+        for option, expected_pickup in expected
+    }
     actual_ids = [stop.surplus_id for stop in candidate.selected_stops]
-    if len(actual_ids) != len(set(actual_ids)) or actual_ids != expected_ids:
+    if len(actual_ids) != len(set(actual_ids)) or set(actual_ids) != set(
+        expected_by_id
+    ):
         raise DomainError(
             "COLLECTION_PROPOSAL_INVALID",
             "The proposal selection is not the bounded deterministic match.",
@@ -152,9 +157,8 @@ def _validate_candidate(
         )
 
     matched = Decimal("0")
-    for stop, (option, expected_pickup) in zip(
-        candidate.selected_stops, expected, strict=True
-    ):
+    for stop in candidate.selected_stops:
+        option, expected_pickup = expected_by_id[stop.surplus_id]
         if (
             stop.version != option.version
             or stop.household_id != option.household_id

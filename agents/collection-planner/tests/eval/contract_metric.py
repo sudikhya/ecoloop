@@ -55,10 +55,10 @@ def evaluate(instance: dict[str, Any]) -> dict[str, Any]:
             "explanation": "The proposal contained invalid or duplicate stops.",
         }
     expected_ids = instance.get("expected_stop_ids")
-    if isinstance(expected_ids, list) and stop_ids != expected_ids:
+    if isinstance(expected_ids, list) and set(stop_ids) != set(expected_ids):
         return {
             "score": 0,
-            "explanation": "The selected stop order did not match deterministic matching.",
+            "explanation": "The selected stops did not match deterministic matching.",
         }
     for field in ("matched_amount", "unmet_amount"):
         expected = instance.get(f"expected_{field}")
