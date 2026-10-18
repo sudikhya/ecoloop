@@ -184,6 +184,7 @@ class SurplusRecord(StrictModel):
     demo_only: Literal[True]
     created_at: datetime
     updated_at: datetime
+    updated_by: Annotated[str, StringConstraints(min_length=1, max_length=128)]
 
 
 class NgoRequestRecord(StrictModel):
