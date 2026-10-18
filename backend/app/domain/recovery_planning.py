@@ -294,6 +294,9 @@ async def plan_ngo_request(
             for stop in candidate.selected_stops
         ]
         snapshots = [ref.get(transaction=transaction) for ref in refs]
+        surplus_by_id = {
+            row["surplus_id"]: row for row in surplus_rows
+        }
         current_rows = []
         for stop, snapshot in zip(candidate.selected_stops, snapshots, strict=True):
             if not snapshot.exists:
@@ -302,8 +305,14 @@ async def plan_ngo_request(
                     "A selected surplus submission is no longer available.",
                     409,
                 )
-            row = _serialize_surplus(snapshot.to_dict() or {}, snapshot.id)
-            if row["household_id"] != stop.household_id:
+            raw = snapshot.to_dict() or {}
+            row = surplus_by_id.get(stop.surplus_id)
+            if (
+                row is None
+                or raw.get("household_id") != stop.household_id
+                or raw.get("version") != stop.version
+                or raw.get("status") != "CONFIRMED"
+            ):
                 raise DomainError(
                     "VERSION_CONFLICT", "A selected surplus scope changed.", 409
                 )
