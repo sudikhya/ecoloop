@@ -312,24 +312,28 @@ async def plan_ngo_request(
             current_request, current_rows, candidate, datetime.now(timezone.utc)
         )
 
-        proposal = RouteProposalRecord.model_validate(
-            candidate.model_dump(mode="python")
+        metadata = {
+            "schema_version": 1,
+            "proposal_id": proposal_id,
+            "ngo_id": principal.ngo_id,
+            "created_by": principal.uid,
+            "request_version": current_request.version,
+            "origin": current_request.origin.model_dump(mode="python"),
+            "created_at": now,
+        }
+        result = {
+            "proposal": candidate.model_dump(mode="json")
             | {
-                "schema_version": 1,
-                "proposal_id": proposal_id,
-                "ngo_id": principal.ngo_id,
-                "created_by": principal.uid,
-                "request_version": current_request.version,
-                "origin": current_request.origin.model_dump(mode="python"),
-                "created_at": now,
+                **metadata,
+                "origin": current_request.origin.model_dump(mode="json"),
+                "created_at": now.isoformat(),
             }
-        )
-        result = {"proposal": proposal.model_dump(mode="json")}
-        stored = proposal.model_dump(mode="python")
-        stored["matched_amount"] = str(proposal.matched_amount)
-        stored["unmet_amount"] = str(proposal.unmet_amount)
+        }
+        stored = candidate.model_dump(mode="python") | metadata
+        stored["matched_amount"] = str(candidate.matched_amount)
+        stored["unmet_amount"] = str(candidate.unmet_amount)
         for stored_stop, proposal_stop in zip(
-            stored["selected_stops"], proposal.selected_stops, strict=True
+            stored["selected_stops"], candidate.selected_stops, strict=True
         ):
             stored_stop["pickup_amount"] = str(proposal_stop.pickup_amount)
         transaction.create(proposal_ref, stored)
