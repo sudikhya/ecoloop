@@ -7,13 +7,13 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import DomainError
 from app.core.firestore import get_firestore
-from app.core.identity import authenticated_uid
+from app.core.identity import household_uid
 
 router = APIRouter()
 
 
 @router.get("/households", response_model=dict[str, Any])
-def list_my_households(request: Request, uid: str = Depends(authenticated_uid)) -> dict[str, Any]:
+def list_my_households(request: Request, uid: str = Depends(household_uid)) -> dict[str, Any]:
     """Return only active memberships belonging to the verified Firebase UID."""
     db = get_firestore()
     try:

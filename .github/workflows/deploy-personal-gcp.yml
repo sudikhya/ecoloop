@@ -83,7 +83,7 @@ jobs:
             --concurrency=20 \
             --timeout=60 \
             --allow-unauthenticated \
-            --set-env-vars="FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},AGENT_ENABLED=false,BACKEND_CORS_ORIGINS=[]" \
+            --set-env-vars="FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }},GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},AGENT_ENABLED=false,SURPLUS_PILOT_ENABLED=true,SURPLUS_INTAKE_AGENT_RESOURCE=projects/722209767801/locations/asia-south1/reasoningEngines/2932028075371659264,COLLECTION_PLANNER_AGENT_RESOURCE=projects/722209767801/locations/asia-south1/reasoningEngines/5620677052911845376,AGENT_RUNTIME_LOCATION=asia-south1,MAX_SURPLUS_MEDIA_BYTES=5000000,BACKEND_CORS_ORIGINS=[]" \
             --quiet
 
           API_URL=$(gcloud run services describe ecoloop-api --project="${{ env.PROJECT_ID }}" --region="${{ env.REGION }}" --format='value(status.url)')
@@ -110,6 +110,7 @@ jobs:
             --build-arg "NEXT_PUBLIC_ECOLOOP_API_ORIGIN=${API_URL}" \
             --build-arg NEXT_PUBLIC_ECOLOOP_ENABLE_COMMANDS=true \
             --build-arg NEXT_PUBLIC_ECOLOOP_ENABLE_HOUSEHOLD_CREATE=true \
+            --build-arg NEXT_PUBLIC_ECOLOOP_ENABLE_SURPLUS_PILOT=true \
             -t "$web_image" frontend
           docker push "$web_image"
 

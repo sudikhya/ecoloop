@@ -1,0 +1,7 @@
+metrics_to_run:
+  - surplus_intake_contract
+
+custom_metrics:
+  - name: surplus_intake_contract
+    execution: local
+    custom_function_file: contract_metric.py

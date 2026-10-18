@@ -1,0 +1,7 @@
+metrics_to_run:
+  - collection_proposal_contract
+
+custom_metrics:
+  - name: collection_proposal_contract
+    execution: local
+    custom_function_file: contract_metric.py

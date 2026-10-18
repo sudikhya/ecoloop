@@ -137,3 +137,148 @@ export async function canonicalRequest(resource: CanonicalResource, idToken: str
     throw new CanonicalApiError("network", writing ? "The response could not be confirmed. Keep the original retry key when retrying a change." : "Household records could not be loaded. Check your connection and try again.");
   } finally { clearTimeout(timeout); options.signal?.removeEventListener("abort", abort); }
 }
+
+export type RecoveryResource =
+  | "surplus-list"
+  | "surplus-create"
+  | "surplus-update"
+  | "surplus-cancel"
+  | "surplus-intake-text"
+  | "surplus-intake-media"
+  | "household-route-proposals"
+  | "ngo-me"
+  | "ngo-surplus"
+  | "ngo-requests"
+  | "ngo-plan"
+  | "ngo-proposals";
+
+type RecoveryRequestOptions = {
+  method?: "GET" | "POST" | "PATCH";
+  householdId?: string;
+  recordId?: string;
+  body?: unknown;
+  media?: Blob;
+  signal?: AbortSignal;
+};
+
+const recoveryMethods: Record<RecoveryResource, readonly string[]> = {
+  "surplus-list": ["GET"],
+  "surplus-create": ["POST"],
+  "surplus-update": ["PATCH"],
+  "surplus-cancel": ["POST"],
+  "surplus-intake-text": ["POST"],
+  "surplus-intake-media": ["POST"],
+  "household-route-proposals": ["GET"],
+  "ngo-me": ["GET"],
+  "ngo-surplus": ["GET"],
+  "ngo-requests": ["POST"],
+  "ngo-plan": ["POST"],
+  "ngo-proposals": ["GET"],
+};
+
+/** Fixed demo-recovery endpoints only. Never retries provider or command calls. */
+export async function recoveryRequest(
+  resource: RecoveryResource,
+  idToken: string,
+  options: RecoveryRequestOptions = {},
+): Promise<unknown> {
+  if (process.env.NEXT_PUBLIC_ECOLOOP_ENABLE_SURPLUS_PILOT !== "true") {
+    throw new CanonicalApiError("not_configured", "The surplus recovery demo is not enabled for this app.");
+  }
+  const method = options.method ?? "GET";
+  if (!recoveryMethods[resource].includes(method)) {
+    throw new CanonicalApiError("validation", "This recovery operation is not supported.");
+  }
+  if (!idToken || idToken.length > 8192 || /[\r\n]/.test(idToken)) {
+    throw new CanonicalApiError("unauthenticated", "Sign in before accessing recovery records.");
+  }
+  const householdScoped = resource.startsWith("surplus-") || resource === "household-route-proposals";
+  if (householdScoped && (!options.householdId || !/^[A-Za-z0-9_-]{1,128}$/.test(options.householdId))) {
+    throw new CanonicalApiError("validation", "Choose a valid household before using the recovery demo.");
+  }
+  const needsRecordId = ["surplus-update", "surplus-cancel", "ngo-plan"].includes(resource);
+  if (needsRecordId && (!options.recordId || !/^[A-Za-z0-9._:-]{1,128}$/.test(options.recordId))) {
+    throw new CanonicalApiError("validation", "The recovery record reference is invalid.");
+  }
+  const paths: Record<RecoveryResource, string> = {
+    "surplus-list": "/api/v1/surplus",
+    "surplus-create": "/api/v1/surplus",
+    "surplus-update": `/api/v1/surplus/${encodeURIComponent(options.recordId ?? "")}`,
+    "surplus-cancel": `/api/v1/surplus/${encodeURIComponent(options.recordId ?? "")}/cancel`,
+    "surplus-intake-text": "/api/v1/surplus/intake/text",
+    "surplus-intake-media": "/api/v1/surplus/intake/media",
+    "household-route-proposals": "/api/v1/surplus/route-proposals",
+    "ngo-me": "/api/v1/ngo/me",
+    "ngo-surplus": "/api/v1/ngo/surplus",
+    "ngo-requests": "/api/v1/ngo/requests",
+    "ngo-plan": `/api/v1/ngo/requests/${encodeURIComponent(options.recordId ?? "")}/plan`,
+    "ngo-proposals": "/api/v1/ngo/proposals",
+  };
+  const hasMedia = options.media !== undefined;
+  const hasJson = options.body !== undefined;
+  if (method === "GET" ? hasMedia || hasJson : hasMedia === hasJson) {
+    throw new CanonicalApiError("validation", "The recovery request body is invalid.");
+  }
+  if (hasMedia && (resource !== "surplus-intake-media" || !options.media || options.media.size > 5_000_000)) {
+    throw new CanonicalApiError("validation", "Choose a supported media file up to 5 MB.");
+  }
+  const serialized = hasJson ? JSON.stringify(options.body) : undefined;
+  if (serialized && new TextEncoder().encode(serialized).length > 256_000) {
+    throw new CanonicalApiError("validation", "This recovery request is too large.");
+  }
+  const controller = new AbortController();
+  const agentRequest = ["surplus-intake-text", "surplus-intake-media", "ngo-plan"].includes(resource);
+  const timeout = window.setTimeout(() => controller.abort(), agentRequest ? 40_000 : 12_000);
+  const abort = () => controller.abort(options.signal?.reason);
+  if (options.signal?.aborted) controller.abort(options.signal.reason);
+  options.signal?.addEventListener("abort", abort, { once: true });
+  try {
+    const response = await fetch(new URL(paths[resource], apiOrigin()), {
+      method,
+      body: options.media ?? serialized,
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        Accept: "application/json",
+        ...(householdScoped ? { "X-Household-ID": options.householdId! } : {}),
+        ...(options.media
+          ? { "Content-Type": options.media.type || "application/octet-stream" }
+          : hasJson
+            ? { "Content-Type": "application/json" }
+            : {}),
+      },
+      cache: "no-store",
+      credentials: "omit",
+      redirect: "error",
+      signal: controller.signal,
+    });
+    const responseBody = await readJson(response);
+    if (!response.ok) {
+      const error = failure(response.status, responseBody, method !== "GET");
+      if (error.code === "forbidden") {
+        throw new CanonicalApiError("forbidden", "This account is not authorized for that recovery area.", error.requestId);
+      }
+      throw error;
+    }
+    return responseBody;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      if (options.signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
+      throw new CanonicalApiError(
+        "timeout",
+        method === "GET"
+          ? "Loading took too long. Check your connection and try again."
+          : "The request timed out. Keep the original retry key when retrying.",
+      );
+    }
+    if (error instanceof CanonicalApiError) throw error;
+    throw new CanonicalApiError(
+      "network",
+      method === "GET"
+        ? "Recovery records could not be loaded. Check your connection and try again."
+        : "The response could not be confirmed. Keep the original retry key when retrying.",
+    );
+  } finally {
+    window.clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", abort);
+  }
+}

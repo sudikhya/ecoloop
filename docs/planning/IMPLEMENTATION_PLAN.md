@@ -224,13 +224,55 @@ Indicative effort: 2–4 engineering days. Entry: M4 reviewed exit gate. Exit: M
   - Owner: Product + reviewer. Prerequisites: M5.01.03, M5.02.02.
   - Acceptance: All prerequisite evidence reviewed; only then mark hackathon-ready. No autonomous rollout or invented completion.
 
+## M6 — Demo surplus recovery pilot
+
+Added by owner approval on 18 October 2026. This is a bounded demo overlay, not authorization for operational food redistribution. It may progress against the deployed single-project foundation while earlier household phase gates remain honestly open.
+
+### M6.01 Contracts and managed agents
+
+- [ ] **M6.01.01 — Freeze recovery schemas, roles and safety rules**
+  - Owner: Product + technical lead. Prerequisites: owner-approved `.agents-cli-spec.md`.
+  - Acceptance: Reviewed typed `SurplusSubmission`, `NgoRequest` and `RouteProposal` contracts distinguish candidate/confirmed/proposed states; NGO access is server-allowlisted; prohibited foods, expiry, unit compatibility, ten-stop limit and no-reservation/no-dispatch rules are deterministic.
+- [ ] **M6.01.02 — Implement the Surplus Intake Agent**
+  - Owner: Agent/backend. Prerequisites: M6.01.01.
+  - Acceptance: Bounded text/image/audio produces schema-valid candidate fields and explicit unknowns; prompt injection is treated as data; no tool can write canonical data; unsafe input cannot contaminate the agent session.
+- [ ] **M6.01.03 — Implement the Collection Planning Agent**
+  - Owner: Agent/backend. Prerequisites: M6.01.01.
+  - Acceptance: Verified NGO requests receive a schema-valid proposal based only on the supplied eligible snapshot and Routes API facts; at most ten stops; unmet amount explicit; no reservation, dispatch or canonical write tool.
+
+### M6.02 Canonical API and screens
+
+- [ ] **M6.02.01 — Add household surplus commands and temporary media lifecycle**
+  - Owner: Backend. Prerequisites: M6.01.02.
+  - Acceptance: Firebase identity and live membership gate every request; candidate creation and explicit confirmation are separate; version/idempotency conflicts fail safely; temporary image/audio is private, bounded and deleted after processing.
+- [ ] **M6.02.02 — Add demo NGO identity, requests, matching and routes**
+  - Owner: Backend. Prerequisites: M6.01.03.
+  - Acceptance: Only a Firebase UID in the server-owned active NGO allowlist can list centralized surplus or create a request; matching uses confirmed unexpired compatible records; route geometry/distance/duration come from Google Maps Routes; exact locations are never available to ordinary household accounts.
+- [ ] **M6.02.03 — Add household and NGO interfaces**
+  - Owner: Frontend. Prerequisites: M6.02.01, M6.02.02.
+  - Acceptance: `/surplus`, `/ngo/login` and `/ngo` have signed-out/loading/empty/error/review/success states, mobile-first accessible controls, visible demo-only language, bounded recording/upload, explicit household confirmation, centralized NGO list and actual map route display.
+
+### M6.03 Evaluate, deploy and verify
+
+- [ ] **M6.03.01 — Run deterministic security and integration acceptance**
+  - Owner: Technical lead + reviewer. Prerequisites: M6.02.03.
+  - Acceptance: Allowed lint/type/build/compile and integration/security journeys cover foreign household, non-NGO, revoked NGO, malicious media text, prohibited food, stale record, incompatible unit, replay, stale version, >10 stops, route outage and no silent mutations. No frontend/backend unit tests are created or run.
+- [ ] **M6.03.02 — Run bounded agent evaluations**
+  - Owner: Agent lead + reviewer. Prerequisites: M6.03.01.
+  - Acceptance: Synthetic dataset, selected model/region, per-run cost bound and observed results are recorded for both agents; evaluation is treated as quality evidence, never authorization or safety proof.
+- [ ] **M6.03.03 — Review cost/IAM and deploy the pilot**
+  - Owner: Owner + technical lead. Prerequisites: M6.03.02.
+  - Acceptance: Owner reviews current billing linkage, budgets/quotas, APIs, Agent Runtime and Cloud Run service accounts, Firebase/Maps restrictions, secrets, rollback and expected incremental cost; then explicitly approves deployment. Both independent managed agents, API and web revisions are verified in `ecoloop-511918` with redacted evidence.
+- [ ] **M6.03.04 — Create and verify the temporary NGO account**
+  - Owner: Owner + technical lead. Prerequisites: M6.03.03.
+  - Acceptance: A single dummy Firebase account is created, allowlisted as `NGO`, credentials are delivered only to the owner and never committed/logged, password rotation/deletion guidance is given, and a deployed end-to-end proposal is observed without dispatch or reservation.
+
 ## Deferred queue — outside release progress
 
-Optional family invites and visibility controls; push notifications; authorized merchant OAuth/history; A2UI renderer package; authored dark theme; public/trusted-circle matching; qualified recipient operations; measured impact research. No deferred item is a hidden prerequisite or part of the completion denominator. Promote one only through an explicit scope/decision update.
+Optional family invites and visibility controls; push notifications; authorized merchant OAuth/history; A2UI renderer package; authored dark theme; public/trusted-circle matching beyond the isolated pilot; qualified recipient operations; measured impact research. No deferred item is a hidden prerequisite or part of the completion denominator. Promote one only through an explicit scope/decision update.
 
 ## Live harness operating rules
 
 MVPTasks inputs: Owner, Status, Done, Evidence, Reviewer, Updated. IDs/dependencies/acceptance change only through a reviewed plan revision. Formula columns are result and dependency readiness; do not type over them. Use filters, not physical sorting; dependency formulas use referenced rows. Complete + Done + evidence + reviewer + ISO date + all prerequisites verified yields Verified. A checkbox alone never passes.
 
 MVPOverview rolls up Verified counts by phase. MVPDecisions contains the compact register. Archive tabs preserve prior work and are hidden to reduce clutter. Native collaboration updates immediately within the Sheet; Markdown and JSON do not sync automatically. At handoff, record a dated snapshot if needed. Do not count this artifact creation as product progress.
-

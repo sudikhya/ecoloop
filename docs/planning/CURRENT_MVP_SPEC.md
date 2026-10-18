@@ -28,7 +28,20 @@ The initial user is a busy adult who shops and cooks irregularly, sometimes chan
 | Household sharing and a clearly simulated community-interest path | Operational NGO/care-recipient food redistribution |
 | Activity history and known quantities with provenance | Automatic carbon/water/money savings or an eco score |
 
-All ten supplied Stitch screens remain represented, through four pages plus shared flows and sheets. Scope reduction removes independent operator products and speculative automation. It does not remove the latest agreed managed memory or interactive-card requirements.
+### Approved recovery-pilot overlay — 18 October 2026
+
+The owner has promoted one deliberately isolated exception from the deferred queue for the hackathon deployment: a **demo-only household-surplus and NGO collection-planning pilot** in project `ecoloop-511918`. This does not authorize real recipient operations, food-safety certification, reservation, dispatch, pickup, delivery or autonomous stock mutation.
+
+- A household may submit bounded text, one image or one recorded audio clip. A dedicated Surplus Intake Agent returns a typed candidate only. The household reviews and explicitly confirms the item, amount/unit, pickup location and `available_until` before FastAPI creates a canonical surplus record.
+- Plate leftovers, spoiled food, expired food and any item marked unsafe or uncertain for sharing are ineligible. Prepared food remains demo-only and requires qualified human review, temperature evidence and recipient capacity before any future real use.
+- A separately authenticated, server-allowlisted demo NGO account may view confirmed eligible demo submissions on a centralized `/ngo` screen. Household users see only their own submissions on `/surplus`.
+- The NGO enters the requested food/category, quantity/unit and starting location. A separate Collection Planning Agent may read a bounded eligible snapshot and propose up to ten pickup stops. The number of stops depends on the request; unmet quantity must remain explicit.
+- Route distance, duration, ordering and geometry come only from the Google Maps Routes API. The agent may explain a proposal but cannot invent route facts, reserve supply, dispatch anyone or mark collection complete. Both views label the plan as a proposal; the allowlisted NGO renders the full route, while a household receives only its own pickup point and proposal status so other precise locations are not disclosed.
+- Temporary image/audio bytes are private and deleted after processing. The two agents are independently deployable on Google Agent Runtime, use the latest stable supported Gemini Flash-class model selected during deployment verification, have no cross-session memory, and expose only narrow read-only tools. Firebase identity, NGO role, membership, version, idempotency and every canonical mutation remain deterministic FastAPI responsibilities.
+
+This overlay supersedes only the earlier blanket deferral of a matching engine and NGO screen. The operational/legal/safety deferral remains in force. The existing household four-destination release and its acceptance requirements remain unchanged.
+
+All ten supplied Stitch screens remain represented, through four pages plus shared flows and sheets. The pilot adds two secondary destinations rather than changing the four-tab household navigation. Scope reduction otherwise continues to exclude broad operator products and speculative automation. It does not remove the latest agreed managed memory or interactive-card requirements.
 
 ### Success and product learning
 
@@ -107,6 +120,17 @@ If counts or quantities are missing, ask for that field or return qualitative su
 6. Discard/compost records the user's actual route. Compost suitability depends on local collection/process rules; uncertain guidance remains uncertain.
 
 MVP has no public feed, matching engine, dispatch or promise of eligibility. This preserves the sharing idea without implying operational food redistribution.
+
+The approved recovery-pilot overlay adds an authenticated, allowlisted demo matching screen outside this private handover flow. It operates only on separately confirmed surplus submissions, produces proposals rather than allocations, and does not change the owner-reported handover semantics above.
+
+### J3A — Demo surplus intake and NGO collection proposal
+
+1. A signed-in household chooses text, image or recorded audio, then submits a bounded input for extraction. The intake agent returns editable candidate fields and explicit unknowns; no canonical surplus exists yet.
+2. The household checks the food itself, corrects the item and quantity/unit, confirms the pickup location and `available_until`, accepts the demo-only disclosure, and explicitly creates the surplus record. Prohibited or stale categories are rejected deterministically.
+3. The household can see only its own confirmed submissions, availability state and any current route proposal that includes that submission. No proposal means reserved or collected.
+4. A separately signed-in, server-allowlisted demo NGO enters food/category, amount/unit and starting location. The backend supplies only confirmed, unexpired, eligible records with compatible units to the planning agent.
+5. The planning agent returns a typed candidate selection of at most ten stops. Deterministic backend validation enforces eligibility, quantity compatibility and request freshness; Google Maps Routes supplies the route facts and polyline.
+6. The NGO reviews the full map, ordered stops, offered total and unmet amount. A household sees the same proposal ID and status plus only its own pickup point; other stops, NGO origin and route geometry are redacted at the API boundary. No action dispatches, reserves or mutates stock in this pilot.
 
 ### J4 — Check before buying
 

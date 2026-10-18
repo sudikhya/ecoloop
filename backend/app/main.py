@@ -9,7 +9,6 @@ from app.core.config import settings
 from app.core.errors import DomainError, domain_error_handler, http_error_handler
 from app.core.middleware import RequestBoundaryMiddleware
 
-
 app = FastAPI(
     title="EcoLoop Household API",
     description="Versioned, authenticated household commands. Managed assistant access is reported explicitly when unavailable.",
@@ -27,7 +26,12 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Household-ID", "Idempotency-Key"],
     max_age=600,
 )
-app.add_middleware(RequestBoundaryMiddleware, max_request_bytes=settings.MAX_REQUEST_BYTES, max_photo_bytes=settings.MAX_PHOTO_BYTES)
+app.add_middleware(
+    RequestBoundaryMiddleware,
+    max_request_bytes=settings.MAX_REQUEST_BYTES,
+    max_photo_bytes=settings.MAX_PHOTO_BYTES,
+    max_surplus_media_bytes=settings.MAX_SURPLUS_MEDIA_BYTES,
+)
 
 
 app.add_exception_handler(DomainError, domain_error_handler)

@@ -12,6 +12,7 @@ const destinations = [
   { href: "/kitchen", label: "Kitchen", icon: "kitchen" },
   { href: "/ask", label: "Ask", icon: "ask" },
   { href: "/shop", label: "Shop", icon: "shop" },
+  { href: "/surplus", label: "Surplus", icon: "gift" },
 ];
 
 function DestinationNav({ pathname }: { pathname: string }) {
@@ -29,13 +30,26 @@ function DestinationNav({ pathname }: { pathname: string }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const household = useLiveHousehold();
+  const ngoPage = pathname === "/ngo" || pathname.startsWith("/ngo/");
+  if (ngoPage) {
+    return <div className="min-h-screen bg-background text-foreground">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-full focus:bg-primary focus:px-5 focus:py-3 focus:text-white">Skip to content</a>
+      <header className="sticky top-0 z-30 border-b border-line/70 bg-background/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-[68px] max-w-6xl items-center justify-between px-4 md:px-7">
+          <Link href="/ngo" aria-label="EcoLoop NGO pilot" className="flex items-center gap-2.5 rounded-xl"><span className="flex size-11 items-center justify-center rounded-2xl bg-primary-soft text-primary"><Icon name="route" size={22} /></span><span className="leading-tight"><span className="block text-[17px] font-extrabold tracking-tight text-primary">EcoLoop</span><span className="block text-[11px] font-medium text-muted">NGO pilot</span></span></Link>
+          <Badge tone="amber">DEMO ONLY</Badge>
+        </div>
+      </header>
+      <main id="main-content" className="mx-auto max-w-6xl px-4 py-6 md:px-7 md:py-9">{children}</main>
+    </div>;
+  }
   const accountPage = pathname === "/account" || pathname.startsWith("/account/");
   const itemDetailPage = /^\/kitchen\/items\/[^/]+$/.test(pathname);
   const itemActionPage = /^\/kitchen\/items\/[^/]+\/(share|outcome)$/.test(pathname);
-  const canonicalPage = ["/", "/kitchen", "/ask", "/shop", "/activity"].includes(pathname) || itemDetailPage || itemActionPage;
+  const canonicalPage = ["/", "/kitchen", "/ask", "/shop", "/activity", "/surplus"].includes(pathname) || itemDetailPage || itemActionPage;
   const settingsPage = pathname === "/settings";
   const intakePage = pathname === "/kitchen/add" || pathname === "/kitchen/review";
-  const statusLabel = accountPage ? "HOUSEHOLD ACCOUNT" : canonicalPage ? "HOUSEHOLD DATA" : intakePage ? "KITCHEN INTAKE" : settingsPage ? "HOUSEHOLD SETTINGS" : "FEATURE UNAVAILABLE";
+  const statusLabel = accountPage ? "HOUSEHOLD ACCOUNT" : pathname === "/surplus" ? "SURPLUS DEMO" : canonicalPage ? "HOUSEHOLD DATA" : intakePage ? "KITCHEN INTAKE" : settingsPage ? "HOUSEHOLD SETTINGS" : "FEATURE UNAVAILABLE";
   return <div className="min-h-screen bg-background text-foreground">
     <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-full focus:bg-primary focus:px-5 focus:py-3 focus:text-white">Skip to content</a>
     <header className="sticky top-0 z-30 border-b border-line/70 bg-background/90 backdrop-blur-xl">

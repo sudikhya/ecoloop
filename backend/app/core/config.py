@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import List, Literal
-from pydantic import field_validator
-from pydantic import SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from pydantic import SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -20,6 +19,7 @@ class Settings(BaseSettings):
     ]
     MAX_REQUEST_BYTES: int = 256_000
     MAX_PHOTO_BYTES: int = 2_000_000
+    MAX_SURPLUS_MEDIA_BYTES: int = 5_000_000
     GEMINI_API_KEY: SecretStr | None = None
     GOOGLE_API_KEY: SecretStr | None = None
     AGENT_ENABLED: bool = False
@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     AGENT_REQUEST_TIMEOUT_SECONDS: int = 20
     AGENT_MAX_OUTPUT_TOKENS: int = 4_096
     AI_DAILY_REQUEST_LIMIT: int = 300
+    SURPLUS_PILOT_ENABLED: bool = False
+    SURPLUS_INTAKE_AGENT_RESOURCE: str | None = None
+    COLLECTION_PLANNER_AGENT_RESOURCE: str | None = None
+    AGENT_RUNTIME_LOCATION: str = "asia-south1"
+    SURPLUS_AGENT_TIMEOUT_SECONDS: int = 25
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
@@ -69,11 +74,25 @@ class Settings(BaseSettings):
             raise ValueError("MAX_PHOTO_BYTES must be between 16 KiB and 2 MiB")
         return size
 
+    @field_validator("MAX_SURPLUS_MEDIA_BYTES")
+    @classmethod
+    def validate_surplus_media_limit(cls, size: int) -> int:
+        if not 16_384 <= size <= 5_000_000:
+            raise ValueError("MAX_SURPLUS_MEDIA_BYTES must be between 16 KiB and 5 MiB")
+        return size
+
     @field_validator("AGENT_REQUEST_TIMEOUT_SECONDS")
     @classmethod
     def validate_agent_timeout(cls, seconds: int) -> int:
         if not 1 <= seconds <= 60:
             raise ValueError("AGENT_REQUEST_TIMEOUT_SECONDS must be between 1 and 60")
+        return seconds
+
+    @field_validator("SURPLUS_AGENT_TIMEOUT_SECONDS")
+    @classmethod
+    def validate_surplus_agent_timeout(cls, seconds: int) -> int:
+        if not 1 <= seconds <= 60:
+            raise ValueError("SURPLUS_AGENT_TIMEOUT_SECONDS must be between 1 and 60")
         return seconds
 
     @field_validator("AGENT_SESSION_IDLE_TTL_SECONDS")

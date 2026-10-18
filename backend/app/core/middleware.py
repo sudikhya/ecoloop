@@ -8,10 +8,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 class RequestBoundaryMiddleware:
     """Adds request metadata and bounds streamed request bodies without buffering them."""
 
-    def __init__(self, app, max_request_bytes: int, max_photo_bytes: int):
+    def __init__(self, app, max_request_bytes: int, max_photo_bytes: int, max_surplus_media_bytes: int):
         self.app = app
         self.max_request_bytes = max_request_bytes
         self.max_photo_bytes = max_photo_bytes
+        self.max_surplus_media_bytes = max_surplus_media_bytes
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -26,7 +27,14 @@ class RequestBoundaryMiddleware:
         )
         path = scope.get("path", "")
         is_photo_intake = path.endswith("/intakes/photo")
-        request_limit = self.max_photo_bytes if is_photo_intake else self.max_request_bytes
+        is_surplus_media = path.endswith("/surplus/intake/media")
+        request_limit = (
+            self.max_surplus_media_bytes
+            if is_surplus_media
+            else self.max_photo_bytes
+            if is_photo_intake
+            else self.max_request_bytes
+        )
         if content_length is not None:
             try:
                 declared_length = int(content_length)

@@ -2,17 +2,26 @@ from fastapi import APIRouter, Depends, Request
 
 from app.agents.memory_bank import memory_bank_status, sync_approved_preference
 from app.core.errors import DomainError
-from app.core.identity import authenticated_uid
-from app.domain.preferences import change_preference, get_preference_record, list_preferences, list_preferences_needing_memory_sync
+from app.core.identity import household_uid
+from app.domain.preferences import (
+    change_preference,
+    get_preference_record,
+    list_preferences,
+    list_preferences_needing_memory_sync,
+)
 from app.schemas.household import ApiResult
-from app.schemas.preferences import DeletePreferenceCommand, PreferenceCommand, PreferenceId, PreferenceMemorySyncCommand
-
+from app.schemas.preferences import (
+    DeletePreferenceCommand,
+    PreferenceCommand,
+    PreferenceId,
+    PreferenceMemorySyncCommand,
+)
 
 router = APIRouter()
 
 
 @router.get("/preferences", response_model=ApiResult)
-def read_preferences(request: Request, uid: str = Depends(authenticated_uid)) -> ApiResult:
+def read_preferences(request: Request, uid: str = Depends(household_uid)) -> ApiResult:
     pending_cleanup = [
         item
         for item in list_preferences_needing_memory_sync(uid, limit=50)
@@ -29,7 +38,7 @@ def read_preferences(request: Request, uid: str = Depends(authenticated_uid)) ->
 
 
 @router.put("/preferences/{preference_id}", response_model=ApiResult)
-def save_preference(request: Request, preference_id: PreferenceId, command: PreferenceCommand, uid: str = Depends(authenticated_uid)) -> ApiResult:
+def save_preference(request: Request, preference_id: PreferenceId, command: PreferenceCommand, uid: str = Depends(household_uid)) -> ApiResult:
     result = change_preference(uid, preference_id, command, delete=False)
     sync_status = sync_approved_preference(uid, preference_id)
     result["memory_bank_sync"] = {"status": sync_status, "version": result["version"]}
@@ -37,7 +46,7 @@ def save_preference(request: Request, preference_id: PreferenceId, command: Pref
 
 
 @router.delete("/preferences/{preference_id}", response_model=ApiResult)
-def remove_preference(request: Request, preference_id: PreferenceId, command: DeletePreferenceCommand, uid: str = Depends(authenticated_uid)) -> ApiResult:
+def remove_preference(request: Request, preference_id: PreferenceId, command: DeletePreferenceCommand, uid: str = Depends(household_uid)) -> ApiResult:
     result = change_preference(uid, preference_id, command, delete=True)
     sync_status = sync_approved_preference(uid, preference_id)
     result["memory_bank_sync"] = {"status": sync_status, "version": result["version"]}
@@ -45,7 +54,7 @@ def remove_preference(request: Request, preference_id: PreferenceId, command: De
 
 
 @router.post("/preferences/{preference_id}/memory-sync", response_model=ApiResult)
-def retry_preference_memory_sync(request: Request, preference_id: PreferenceId, command: PreferenceMemorySyncCommand, uid: str = Depends(authenticated_uid)) -> ApiResult:
+def retry_preference_memory_sync(request: Request, preference_id: PreferenceId, command: PreferenceMemorySyncCommand, uid: str = Depends(household_uid)) -> ApiResult:
     """Retry synchronization of one owner-scoped, consented preference."""
     if get_preference_record(uid, preference_id) is None:
         raise DomainError("PREFERENCE_NOT_FOUND", "Preference data is unavailable.", 404)

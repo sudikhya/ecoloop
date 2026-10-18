@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { loadGoogleMaps } from "@/lib/google-maps-loader";
 
 export interface SelectedLocation {
   address: string;
@@ -14,6 +15,8 @@ interface LocationAutocompleteProps {
   onLocationSelected: (location: SelectedLocation) => void;
   defaultValue?: string;
   disabled?: boolean;
+  idPrefix?: string;
+  label?: string;
 }
 
 interface MapsLatLng {
@@ -47,64 +50,16 @@ interface PlacesLibrary {
   PlaceAutocompleteElement: new () => PlaceAutocompleteElement;
 }
 
-interface GoogleMapsNamespace {
-  importLibrary: (library: "places") => Promise<PlacesLibrary>;
-}
-
 type MapsStatus = "loading" | "ready" | "unavailable";
 
 const MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-const MAPS_SCRIPT_ID = "google-maps-places-script";
-const MAPS_READY_CALLBACK = "__ecoloopGoogleMapsReady";
-let mapsLoaderPromise: Promise<GoogleMapsNamespace> | null = null;
-
-function loadGoogleMaps(apiKey: string): Promise<GoogleMapsNamespace> {
-  if (window.google?.maps?.importLibrary) {
-    return Promise.resolve(window.google.maps);
-  }
-  if (mapsLoaderPromise) return mapsLoaderPromise;
-
-  mapsLoaderPromise = new Promise<GoogleMapsNamespace>((resolve, reject) => {
-    const clearReadyCallback = () => {
-      delete window.__ecoloopGoogleMapsReady;
-    };
-    const handleReady = () => {
-      clearReadyCallback();
-      if (window.google?.maps?.importLibrary) {
-        resolve(window.google.maps);
-      } else {
-        reject(new Error("Google Maps loaded without the library importer."));
-      }
-    };
-    const handleError = () => {
-      clearReadyCallback();
-      reject(new Error("Google Maps failed to load."));
-    };
-
-    const existingScript = document.getElementById(MAPS_SCRIPT_ID) as HTMLScriptElement | null;
-    if (existingScript) {
-      existingScript.remove();
-    }
-
-    window.__ecoloopGoogleMapsReady = handleReady;
-    const script = document.createElement("script");
-    script.id = MAPS_SCRIPT_ID;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&libraries=places&v=weekly&auth_referrer_policy=origin&callback=${MAPS_READY_CALLBACK}`;
-    script.async = true;
-    script.addEventListener("error", handleError, { once: true });
-    document.head.appendChild(script);
-  }).catch((error: unknown) => {
-    mapsLoaderPromise = null;
-    throw error;
-  });
-
-  return mapsLoaderPromise;
-}
 
 export function LocationAutocomplete({
   onLocationSelected,
   defaultValue = "",
   disabled = false,
+  idPrefix = "household-location",
+  label = "Household address / location",
 }: LocationAutocompleteProps) {
   const widgetHostRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<PlaceAutocompleteElement | null>(null);
@@ -148,18 +103,19 @@ export function LocationAutocomplete({
 
     void loadGoogleMaps(MAPS_API_KEY)
       .then((maps) => maps.importLibrary("places"))
-      .then(({ PlaceAutocompleteElement }) => {
+      .then((library) => {
+        const { PlaceAutocompleteElement } = library as PlacesLibrary;
         if (!active || failed || !widgetHostRef.current) return;
 
         const widget = new PlaceAutocompleteElement();
-        widget.id = "household-location-autocomplete";
+        widget.id = `${idPrefix}-autocomplete`;
         widget.className = "ecoloop-place-autocomplete";
         widget.placeholder = "Start typing an address or area…";
         widget.value = addressRef.current;
         widget.disabled = disabledRef.current;
         widget.setAttribute("maxlength", "256");
-        widget.setAttribute("aria-labelledby", "household-location-label");
-        widget.setAttribute("aria-describedby", "household-location-help");
+        widget.setAttribute("aria-labelledby", `${idPrefix}-label`);
+        widget.setAttribute("aria-describedby", `${idPrefix}-help`);
 
         const handleInput = () => {
           const nextAddress = widget.value;
@@ -217,7 +173,7 @@ export function LocationAutocomplete({
         window.gm_authFailure = previousAuthFailure;
       }
     };
-  }, []);
+  }, [idPrefix]);
 
   const updateFallbackAddress = (nextAddress: string) => {
     addressRef.current = nextAddress;
@@ -228,16 +184,16 @@ export function LocationAutocomplete({
   return (
     <div className="space-y-1">
       <label
-        id="household-location-label"
-        htmlFor={mapsStatus === "ready" ? "household-location-autocomplete" : "household-location-input"}
+        id={`${idPrefix}-label`}
+        htmlFor={mapsStatus === "ready" ? `${idPrefix}-autocomplete` : `${idPrefix}-input`}
         className="block text-xs font-semibold text-primary"
       >
-        Household address / location
+        {label}
       </label>
       <div ref={widgetHostRef} hidden={mapsStatus !== "ready"} />
       {mapsStatus !== "ready" && (
         <Input
-          id="household-location-input"
+          id={`${idPrefix}-input`}
           type="text"
           placeholder="Enter household address or area"
           value={address}
@@ -246,10 +202,10 @@ export function LocationAutocomplete({
           className="bg-surface-muted text-sm"
           autoComplete="street-address"
           maxLength={256}
-          aria-describedby="household-location-help"
+          aria-describedby={`${idPrefix}-help`}
         />
       )}
-      <p id="household-location-help" role="status" className="text-[11px] text-muted">
+      <p id={`${idPrefix}-help`} role="status" className="text-[11px] text-muted">
         {mapsStatus === "ready"
           ? "Choose a Google Maps suggestion to save its address and map location."
           : mapsStatus === "loading"
@@ -258,14 +214,4 @@ export function LocationAutocomplete({
       </p>
     </div>
   );
-}
-
-declare global {
-  interface Window {
-    __ecoloopGoogleMapsReady?: () => void;
-    gm_authFailure?: () => void;
-    google?: {
-      maps?: GoogleMapsNamespace;
-    };
-  }
 }
